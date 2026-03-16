@@ -13,11 +13,5 @@ public record CheckInCommand(
 ) : IRequest<Result<CheckInResultDto>>
 {
     public Guid UserId { get; init; }
-}
-
-public record CheckOutCommand(
-    Guid VenueId
-) : IRequest<Result<bool>>
-{
-    public Guid UserId { get; init; }
+    public string Gender { get; init; } = "unknown";
 }

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Loca.Domain.Entities;
 using Loca.Domain.Enums;
 using Loca.Services.Game.Engine;
 
@@ -6,73 +7,90 @@ namespace Loca.Tests.Unit.Services;
 
 public class MafiaEngineTests
 {
-    private readonly MafiaEngine _engine = new();
-
-    [Fact]
-    public void Should_AssignRolesToAllPlayers_When_GameInitialized()
+    [Theory]
+    [InlineData(GameType.Mafia, 5, 12)]
+    [InlineData(GameType.TruthOrDare, 3, 10)]
+    [InlineData(GameType.Uno, 2, 6)]
+    [InlineData(GameType.Domino, 2, 4)]
+    [InlineData(GameType.QuizBattle, 2, 20)]
+    public void Should_ReturnCorrectPlayerLimits(GameType type, int expectedMin, int expectedMax)
     {
-        var playerIds = Enumerable.Range(0, 6).Select(_ => Guid.NewGuid()).ToList();
-
-        var state = (MafiaState)_engine.InitializeState(playerIds);
-
-        state.Roles.Should().HaveCount(6);
-        state.AlivePlayers.Should().HaveCount(6);
-        state.Phase.Should().Be(MafiaPhase.Day);
-        state.Round.Should().Be(1);
-
-        // With 6 players: 1 mafia, 1 doctor, 1 detective, 3 civilians
-        state.Roles.Values.Count(r => r == MafiaRole.Mafia).Should().Be(1);
-        state.Roles.Values.Count(r => r == MafiaRole.Doctor).Should().Be(1);
-        state.Roles.Values.Count(r => r == MafiaRole.Detective).Should().Be(1);
-        state.Roles.Values.Count(r => r == MafiaRole.Civilian).Should().Be(3);
+        var (min, max) = GameStateMachine.GetPlayerLimits(type);
+        min.Should().Be(expectedMin);
+        max.Should().Be(expectedMax);
     }
 
     [Fact]
-    public void Should_EliminatePlayer_When_VotingCompletes()
+    public void Should_InitializeMafiaGame_WithRoles()
     {
-        var playerIds = Enumerable.Range(0, 6).Select(_ => Guid.NewGuid()).ToList();
-        var state = (MafiaState)_engine.InitializeState(playerIds);
-        var target = playerIds[0];
-
-        // All players vote for the same target
-        foreach (var playerId in playerIds)
+        var session = new GameSession
         {
-            state = (MafiaState)_engine.ProcessAction(state, playerId, "vote", target.ToString());
-        }
+            GameType = GameType.Mafia,
+            HostUserId = Guid.NewGuid(),
+            MinPlayers = 5,
+            MaxPlayers = 12,
+        };
 
-        state.AlivePlayers.Should().NotContain(target);
-        state.EliminatedPlayers.Should().Contain(target);
-        state.Phase.Should().Be(MafiaPhase.Night);
+        // Add 5 players
+        for (int i = 0; i < 5; i++)
+            session.Players.Add(new GamePlayer { SessionId = session.Id, UserId = Guid.NewGuid() });
+
+        GameStateMachine.InitializeGame(session);
+
+        session.CurrentPhase.Should().Be("Night");
+        session.StateJson.Should().NotBeNullOrEmpty();
+        session.Players.Should().AllSatisfy(p => p.Role.Should().NotBeNullOrEmpty());
+
+        // Should have exactly 1 Mafia, 1 Doctor, 1 Detective, 2 Citizens for 5 players
+        session.Players.Count(p => p.Role == "Mafia").Should().Be(1);
+        session.Players.Count(p => p.Role == "Doctor").Should().Be(1);
+        session.Players.Count(p => p.Role == "Detective").Should().Be(1);
+        session.Players.Count(p => p.Role == "Citizen").Should().Be(2);
     }
 
     [Fact]
-    public void Should_GameNotBeOver_When_MafiaAndCiviliansRemain()
+    public void Should_InitializeTruthOrDare()
     {
-        var playerIds = Enumerable.Range(0, 6).Select(_ => Guid.NewGuid()).ToList();
-        var state = (MafiaState)_engine.InitializeState(playerIds);
-
-        _engine.IsGameOver(state).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Should_GameBeOver_When_AllMafiaEliminated()
-    {
-        var playerIds = Enumerable.Range(0, 6).Select(_ => Guid.NewGuid()).ToList();
-        var state = (MafiaState)_engine.InitializeState(playerIds);
-
-        // Remove all mafia from alive players
-        var mafiaPlayers = state.Roles.Where(r => r.Value == MafiaRole.Mafia).Select(r => r.Key).ToList();
-        foreach (var mafia in mafiaPlayers)
+        var session = new GameSession
         {
-            state.AlivePlayers.Remove(mafia);
-        }
+            GameType = GameType.TruthOrDare,
+            HostUserId = Guid.NewGuid(),
+            MinPlayers = 3,
+            MaxPlayers = 10,
+        };
 
-        _engine.IsGameOver(state).Should().BeTrue();
+        for (int i = 0; i < 4; i++)
+            session.Players.Add(new GamePlayer { SessionId = session.Id, UserId = Guid.NewGuid() });
+
+        GameStateMachine.InitializeGame(session);
+
+        session.CurrentPhase.Should().Be("Choosing");
+        session.StateJson.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
-    public void Should_ReturnCorrectGameType()
+    public void Should_ProvideFogOfWar_ForMafiaPlayers()
     {
-        _engine.GameType.Should().Be(GameType.Mafia);
+        var session = new GameSession
+        {
+            GameType = GameType.Mafia,
+            HostUserId = Guid.NewGuid(),
+            MinPlayers = 5,
+            MaxPlayers = 12,
+        };
+
+        for (int i = 0; i < 5; i++)
+            session.Players.Add(new GamePlayer { SessionId = session.Id, UserId = Guid.NewGuid() });
+
+        GameStateMachine.InitializeGame(session);
+
+        var mafiaPlayer = session.Players.First(p => p.Role == "Mafia");
+        var citizenPlayer = session.Players.First(p => p.Role == "Citizen");
+
+        var mafiaState = GameStateMachine.GetPlayerState(session, mafiaPlayer.UserId);
+        var citizenState = GameStateMachine.GetPlayerState(session, citizenPlayer.UserId);
+
+        mafiaState.Should().NotBeNull();
+        citizenState.Should().NotBeNull();
     }
 }

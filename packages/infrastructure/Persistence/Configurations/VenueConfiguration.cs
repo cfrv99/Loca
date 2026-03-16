@@ -10,37 +10,18 @@ public class VenueConfiguration : IEntityTypeConfiguration<Venue>
     {
         builder.ToTable("venues", "venue");
         builder.HasKey(v => v.Id);
-        builder.HasIndex(v => v.Name);
-
         builder.Property(v => v.Name).HasMaxLength(200).IsRequired();
-        builder.Property(v => v.Description).HasMaxLength(2000);
         builder.Property(v => v.Address).HasMaxLength(500).IsRequired();
+        builder.Property(v => v.Category).HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(v => v.CoverPhotoUrl).HasMaxLength(500);
         builder.Property(v => v.Phone).HasMaxLength(20);
         builder.Property(v => v.Website).HasMaxLength(500);
-        builder.Property(v => v.InstagramHandle).HasMaxLength(100);
-        builder.Property(v => v.OpeningHours).HasMaxLength(1000);
+        builder.Property(v => v.GoogleRating).HasPrecision(2, 1);
+        builder.Property(v => v.QrSecretKey).HasMaxLength(64).IsRequired();
+        builder.Property(v => v.SubscriptionPlan).HasMaxLength(20).HasDefaultValue("basic");
 
-        // PostGIS spatial column
-        builder.Property(v => v.Location).HasColumnType("geometry (point, 4326)");
-        builder.HasIndex(v => v.Location).HasMethod("gist");
-    }
-}
-
-public class QrCodeConfiguration : IEntityTypeConfiguration<QrCode>
-{
-    public void Configure(EntityTypeBuilder<QrCode> builder)
-    {
-        builder.ToTable("qr_codes", "venue");
-        builder.HasKey(q => q.Id);
-        builder.HasIndex(q => q.Payload).IsUnique();
-
-        builder.Property(q => q.Payload).HasMaxLength(500).IsRequired();
-        builder.Property(q => q.Secret).HasMaxLength(255).IsRequired();
-
-        builder.HasOne(q => q.Venue)
-            .WithMany(v => v.QrCodes)
-            .HasForeignKey(q => q.VenueId);
+        builder.HasIndex(v => v.Category);
+        builder.HasIndex(v => v.OwnerUserId);
     }
 }
 
@@ -50,18 +31,18 @@ public class CheckInConfiguration : IEntityTypeConfiguration<CheckIn>
     {
         builder.ToTable("checkins", "venue");
         builder.HasKey(c => c.Id);
-        builder.HasIndex(c => new { c.UserId, c.VenueId, c.CheckInAt });
-        builder.HasIndex(c => c.VenueId);
+        builder.Property(c => c.QrPayloadHash).HasMaxLength(128).IsRequired();
+        builder.Property(c => c.DeviceFingerprint).HasMaxLength(255);
+        builder.Property(c => c.CheckOutReason).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Lat).HasPrecision(10, 7);
+        builder.Property(c => c.Lng).HasPrecision(10, 7);
 
-        builder.Property(c => c.QrPayloadHash).HasMaxLength(255).IsRequired();
-        builder.Property(c => c.DeviceFingerprint).HasMaxLength(255).IsRequired();
+        builder.HasIndex(c => new { c.VenueId, c.CheckOutAt })
+            .HasFilter("check_out_at IS NULL");
+        builder.HasIndex(c => new { c.UserId, c.CheckInAt })
+            .IsDescending(false, true);
 
-        builder.HasOne(c => c.User)
-            .WithMany(u => u.CheckIns)
-            .HasForeignKey(c => c.UserId);
-
-        builder.HasOne(c => c.Venue)
-            .WithMany(v => v.CheckIns)
-            .HasForeignKey(c => c.VenueId);
+        builder.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId);
+        builder.HasOne(c => c.Venue).WithMany(v => v.CheckIns).HasForeignKey(c => c.VenueId);
     }
 }

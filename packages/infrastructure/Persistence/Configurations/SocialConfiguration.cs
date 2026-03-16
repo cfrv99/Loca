@@ -4,36 +4,31 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Loca.Infrastructure.Persistence.Configurations;
 
-public class ChatRoomConfiguration : IEntityTypeConfiguration<ChatRoom>
-{
-    public void Configure(EntityTypeBuilder<ChatRoom> builder)
-    {
-        builder.ToTable("chat_rooms", "social");
-        builder.HasKey(c => c.Id);
-        builder.HasIndex(c => c.VenueId);
-        builder.Property(c => c.Name).HasMaxLength(200);
-    }
-}
-
 public class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMessage>
 {
     public void Configure(EntityTypeBuilder<ChatMessage> builder)
     {
         builder.ToTable("messages", "social");
         builder.HasKey(m => m.Id);
-        builder.HasIndex(m => new { m.ChatRoomId, m.CreatedAt });
-
-        builder.Property(m => m.Content).HasMaxLength(2000).IsRequired();
+        builder.Property(m => m.RoomId).HasMaxLength(100).IsRequired();
+        builder.Property(m => m.MessageType).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(m => m.MediaUrl).HasMaxLength(500);
-        builder.Property(m => m.GiftId).HasMaxLength(100);
+        builder.Property(m => m.MetadataJson).HasColumnType("jsonb");
 
-        builder.HasOne(m => m.ChatRoom)
-            .WithMany(r => r.Messages)
-            .HasForeignKey(m => m.ChatRoomId);
+        builder.HasIndex(m => new { m.RoomId, m.CreatedAt })
+            .IsDescending(false, true);
 
-        builder.HasOne(m => m.Sender)
-            .WithMany()
-            .HasForeignKey(m => m.SenderId);
+        builder.HasOne(m => m.ReplyTo).WithMany().HasForeignKey(m => m.ReplyToId);
+    }
+}
+
+public class MessageReactionConfiguration : IEntityTypeConfiguration<MessageReaction>
+{
+    public void Configure(EntityTypeBuilder<MessageReaction> builder)
+    {
+        builder.ToTable("message_reactions", "social");
+        builder.HasKey(r => new { r.MessageId, r.UserId, r.Emoji });
+        builder.Property(r => r.Emoji).HasMaxLength(10).IsRequired();
     }
 }
 
@@ -43,11 +38,24 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
     {
         builder.ToTable("posts", "social");
         builder.HasKey(p => p.Id);
-        builder.HasIndex(p => new { p.VenueId, p.CreatedAt });
-        builder.Property(p => p.Caption).HasMaxLength(1000);
+        builder.Property(p => p.MediaType).HasMaxLength(20).HasDefaultValue("photo");
+
+        builder.HasIndex(p => new { p.VenueId, p.CreatedAt })
+            .IsDescending(false, true);
+        builder.HasIndex(p => new { p.UserId, p.CreatedAt })
+            .IsDescending(false, true);
 
         builder.HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId);
         builder.HasOne(p => p.Venue).WithMany().HasForeignKey(p => p.VenueId);
+    }
+}
+
+public class LikeConfiguration : IEntityTypeConfiguration<Like>
+{
+    public void Configure(EntityTypeBuilder<Like> builder)
+    {
+        builder.ToTable("likes", "social");
+        builder.HasKey(l => new { l.PostId, l.UserId });
     }
 }
 
@@ -58,20 +66,8 @@ public class CommentConfiguration : IEntityTypeConfiguration<Comment>
         builder.ToTable("comments", "social");
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Content).HasMaxLength(500).IsRequired();
-        builder.HasOne(c => c.Post).WithMany(p => p.Comments).HasForeignKey(c => c.PostId);
-        builder.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId);
-    }
-}
-
-public class LikeConfiguration : IEntityTypeConfiguration<Like>
-{
-    public void Configure(EntityTypeBuilder<Like> builder)
-    {
-        builder.ToTable("likes", "social");
-        builder.HasKey(l => l.Id);
-        builder.HasIndex(l => new { l.PostId, l.UserId }).IsUnique();
-        builder.HasOne(l => l.Post).WithMany(p => p.Likes).HasForeignKey(l => l.PostId);
-        builder.HasOne(l => l.User).WithMany().HasForeignKey(l => l.UserId);
+        builder.HasIndex(c => new { c.PostId, c.CreatedAt })
+            .IsDescending(false, true);
     }
 }
 
@@ -79,14 +75,14 @@ public class MatchRequestConfiguration : IEntityTypeConfiguration<MatchRequest>
 {
     public void Configure(EntityTypeBuilder<MatchRequest> builder)
     {
-        builder.ToTable("match_requests", "matching");
+        builder.ToTable("match_requests", "social");
         builder.HasKey(m => m.Id);
-        builder.HasIndex(m => new { m.SenderId, m.ReceiverId });
-        builder.Property(m => m.IntroMessage).HasMaxLength(500);
+        builder.Property(m => m.IntroMessage).HasMaxLength(200);
+        builder.Property(m => m.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue("pending");
 
-        builder.HasOne(m => m.Sender).WithMany().HasForeignKey(m => m.SenderId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(m => m.Receiver).WithMany().HasForeignKey(m => m.ReceiverId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(m => m.Venue).WithMany().HasForeignKey(m => m.VenueId);
+        builder.HasIndex(m => new { m.ReceiverId, m.Status });
+        builder.HasIndex(m => new { m.SenderId, m.CreatedAt })
+            .HasFilter("status = 'Pending'");
     }
 }
 
@@ -94,26 +90,28 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
 {
     public void Configure(EntityTypeBuilder<Conversation> builder)
     {
-        builder.ToTable("conversations", "matching");
+        builder.ToTable("conversations", "social");
         builder.HasKey(c => c.Id);
-        builder.HasIndex(c => new { c.User1Id, c.User2Id }).IsUnique();
-
-        builder.HasOne(c => c.MatchRequest).WithOne(m => m.Conversation).HasForeignKey<Conversation>(c => c.MatchRequestId);
-        builder.HasOne(c => c.User1).WithMany().HasForeignKey(c => c.User1Id).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(c => c.User2).WithMany().HasForeignKey(c => c.User2Id).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(c => c.LastMessagePreview).HasMaxLength(100);
     }
 }
 
-public class UserBlockConfiguration : IEntityTypeConfiguration<UserBlock>
+public class BlockConfiguration : IEntityTypeConfiguration<Block>
 {
-    public void Configure(EntityTypeBuilder<UserBlock> builder)
+    public void Configure(EntityTypeBuilder<Block> builder)
     {
-        builder.ToTable("user_blocks", "social");
-        builder.HasKey(b => b.Id);
-        builder.HasIndex(b => new { b.BlockerId, b.BlockedId }).IsUnique();
-        builder.Property(b => b.Description).HasMaxLength(500);
+        builder.ToTable("blocks", "social");
+        builder.HasKey(b => new { b.BlockerId, b.BlockedId });
+    }
+}
 
-        builder.HasOne(b => b.Blocker).WithMany().HasForeignKey(b => b.BlockerId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(b => b.Blocked).WithMany().HasForeignKey(b => b.BlockedId).OnDelete(DeleteBehavior.Restrict);
+public class ReportConfiguration : IEntityTypeConfiguration<Report>
+{
+    public void Configure(EntityTypeBuilder<Report> builder)
+    {
+        builder.ToTable("reports", "social");
+        builder.HasKey(r => r.Id);
+        builder.Property(r => r.Reason).HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue("pending");
     }
 }

@@ -4,6 +4,4 @@ using MediatR;
 
 namespace Loca.Services.Identity.Queries;
 
-public record GetMyProfileQuery(Guid UserId) : IRequest<Result<UserDto>>;
-
-public record GetUserProfileQuery(Guid UserId, Guid TargetUserId) : IRequest<Result<UserProfileDto>>;
+public record GetProfileQuery(Guid UserId) : IRequest<Result<UserDto>>;

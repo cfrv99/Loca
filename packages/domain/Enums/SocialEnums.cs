@@ -3,12 +3,12 @@ namespace Loca.Domain.Enums;
 public enum MessageType
 {
     Text,
-    Emoji,
-    Gif,
     Image,
+    Gif,
     Voice,
-    Gift,
-    System
+    System,
+    GameInvite,
+    Gift
 }
 
 public enum MatchRequestStatus
@@ -21,16 +21,16 @@ public enum MatchRequestStatus
 
 public enum ReportReason
 {
-    Spam,
     Harassment,
-    InappropriateContent,
+    Spam,
     FakeProfile,
+    InappropriateContent,
     Other
 }
 
-public enum ChatRoomType
+public enum ReportStatus
 {
-    Venue,
-    Private,
-    Group
+    Pending,
+    Reviewed,
+    Resolved
 }

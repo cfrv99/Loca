@@ -1,10 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    './App.{js,jsx,ts,tsx}',
-    './app/**/*.{js,jsx,ts,tsx}',
-    './features/**/*.{js,jsx,ts,tsx}',
-    './shared/**/*.{js,jsx,ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './features/**/*.{ts,tsx}',
+    './shared/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
@@ -15,14 +14,10 @@ module.exports = {
         success: '#10B981',
         warning: '#F59E0B',
         error: '#EF4444',
-        background: {
-          light: '#F9FAFB',
-          dark: '#111827',
-        },
-        surface: {
-          light: '#FFFFFF',
-          dark: '#1F2937',
-        },
+        'background-light': '#F9FAFB',
+        'background-dark': '#111827',
+        'surface-light': '#FFFFFF',
+        'surface-dark': '#1F2937',
       },
       fontFamily: {
         sans: ['System'],

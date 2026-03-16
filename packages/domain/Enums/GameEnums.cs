@@ -10,36 +10,32 @@ public enum GameType
     WouldYouRather
 }
 
-public enum GameSessionStatus
+public enum GameStatus
 {
     Lobby,
     InProgress,
-    Paused,
     Completed,
     Cancelled
 }
 
 public enum MafiaRole
 {
-    Civilian,
     Mafia,
     Doctor,
-    Detective
+    Detective,
+    Citizen
 }
 
 public enum MafiaPhase
 {
-    Day,
     Night,
-    Voting,
-    Result
+    DayDiscussion,
+    DayVote,
+    Elimination
 }
 
-public enum GamePlayerStatus
+public enum TruthOrDareChoice
 {
-    Waiting,
-    Ready,
-    Playing,
-    Eliminated,
-    Disconnected
+    Truth,
+    Dare
 }

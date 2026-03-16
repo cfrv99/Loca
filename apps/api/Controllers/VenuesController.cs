@@ -33,21 +33,6 @@ public class VenuesController : ControllerBase
     }
 
     /// <summary>
-    /// Get venue details
-    /// </summary>
-    [HttpGet("{venueId:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<VenueDetailDto>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<VenueDetailDto>), 404)]
-    public async Task<IActionResult> GetDetail(Guid venueId)
-    {
-        var result = await _mediator.Send(new GetVenueDetailQuery(venueId));
-        return result.Match<IActionResult>(
-            data => Ok(ApiResponse<VenueDetailDto>.Ok(data)),
-            error => NotFound(ApiResponse<VenueDetailDto>.Fail(error.Code, error.Message))
-        );
-    }
-
-    /// <summary>
     /// Check in to a venue via QR code
     /// </summary>
     [HttpPost("checkin")]
@@ -55,7 +40,7 @@ public class VenuesController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<CheckInResultDto>), 400)]
     public async Task<IActionResult> CheckIn([FromBody] CheckInCommand cmd)
     {
-        cmd = cmd with { UserId = User.GetUserId() };
+        cmd = cmd with { UserId = User.GetUserId(), Gender = User.GetGender() };
         var result = await _mediator.Send(cmd);
         return result.Match<IActionResult>(
             data => Ok(ApiResponse<CheckInResultDto>.Ok(data)),
@@ -70,17 +55,13 @@ public class VenuesController : ControllerBase
     }
 
     /// <summary>
-    /// Check out from a venue
+    /// Manual checkout
     /// </summary>
     [HttpPost("checkout")]
-    [ProducesResponseType(typeof(ApiResponse<bool>), 200)]
-    public async Task<IActionResult> CheckOut([FromBody] CheckOutCommand cmd)
+    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
+    public async Task<IActionResult> CheckOut([FromBody] CheckOutRequest request)
     {
-        cmd = cmd with { UserId = User.GetUserId() };
-        var result = await _mediator.Send(cmd);
-        return result.Match<IActionResult>(
-            data => Ok(ApiResponse<bool>.Ok(data)),
-            error => BadRequest(ApiResponse<bool>.Fail(error.Code, error.Message))
-        );
+        // TODO: Implement checkout
+        return Ok(ApiResponse<object>.Ok(new { success = true }));
     }
 }

@@ -3,37 +3,47 @@ namespace Loca.Application.DTOs;
 public record GameSessionDto(
     Guid Id,
     string GameType,
-    string Status,
     Guid HostId,
-    string HostName,
-    int PlayerCount,
-    int MinPlayers,
     int MaxPlayers,
-    DateTime CreatedAt
-);
-
-public record GameLobbyDto(
-    Guid SessionId,
-    string GameType,
-    string Status,
-    List<GamePlayerDto> Players,
-    Guid HostId,
     int MinPlayers,
-    int MaxPlayers
+    string Status,
+    List<GamePlayerDto> Players
 );
 
 public record GamePlayerDto(
     Guid UserId,
     string DisplayName,
-    string? ProfilePhotoUrl,
-    string Status,
-    int Score
+    string? AvatarUrl,
+    int Score,
+    bool IsAlive,
+    bool IsConnected
 );
 
-public record GameStateDto(
-    Guid SessionId,
-    string GameType,
-    int CurrentRound,
-    string Phase,
-    object? StateData // Game-specific state
+public record GameActionDto(
+    string ActionType,
+    Guid? TargetPlayerId,
+    object? Data
+);
+
+public record GameResultDto(
+    Guid? WinnerId,
+    string? WinnerTeam,
+    Dictionary<Guid, int> Scores,
+    TimeSpan Duration
+);
+
+public record TruthOrDareQuestionDto(
+    Guid Id,
+    string Type,
+    string Category,
+    string ContentAz,
+    string? ContentEn
+);
+
+public record QuizQuestionDto(
+    Guid Id,
+    string Category,
+    string QuestionAz,
+    List<string> AnswersAz,
+    int CorrectIndex
 );

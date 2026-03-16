@@ -1,14 +1,18 @@
 import { View, Text } from 'react-native';
+import { EmptyState } from '../../../shared/components/empty-state';
 
 export default function HubScreen() {
   return (
-    <View className="flex-1 bg-background-light dark:bg-background-dark items-center justify-center">
-      <Text className="text-2xl font-bold text-primary dark:text-white mb-2">
-        Social Hub
-      </Text>
-      <Text className="text-sm text-gray-500 text-center px-8">
-        Bir mekana check-in edin. Chat, oyunlar ve insanlar burada gorunecek.
-      </Text>
+    <View className="flex-1 bg-background-light dark:bg-background-dark">
+      <View className="px-4 pt-12 pb-2">
+        <Text className="text-3xl font-bold text-primary dark:text-white">
+          Hub
+        </Text>
+      </View>
+      <EmptyState
+        icon="📱"
+        message="QR scan edərək bir məkana qoşulun"
+      />
     </View>
   );
 }

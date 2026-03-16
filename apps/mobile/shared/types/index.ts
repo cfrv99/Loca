@@ -9,14 +9,12 @@ export interface CursorPageResponse<T> {
   items: T[];
   nextCursor?: string;
   hasMore: boolean;
-  totalCount: number;
 }
 
 // Auth
-export interface LoginResult {
+export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  expiresAt: string;
   user: UserDto;
   isNewUser: boolean;
 }
@@ -25,63 +23,81 @@ export interface UserDto {
   id: string;
   email: string;
   displayName: string;
-  firstName?: string;
-  lastName?: string;
-  profilePhotoUrl?: string;
-  bio?: string;
-  isOnboardingComplete: boolean;
+  avatarUrl?: string;
+  dateOfBirth: string;
+  gender: string;
+  interests: string[];
+  purposes: string[];
+  vibePreferences: VibePreferenceDto[];
+  isOnboarded: boolean;
+  isPremium: boolean;
+  coinBalance: number;
   createdAt: string;
 }
 
-export interface UserProfileDto {
+export interface VibePreferenceDto {
+  vibe: string;
+  weight: number;
+}
+
+export interface PublicUserDto {
   id: string;
   displayName: string;
-  profilePhotoUrl?: string;
-  bio?: string;
+  avatarUrl?: string;
+  age: number;
+  gender: string;
   interests: string[];
-  totalCheckIns: number;
-  totalGamesPlayed: number;
-  totalGiftsReceived: number;
-  totalMatchesMade: number;
+  purposes: string[];
+  pastVenues: PastVenueDto[];
+  memoriesCount: number;
+  giftBadge?: string;
+}
+
+export interface PastVenueDto {
+  venueId: string;
+  venueName: string;
+  lastVisit: string;
 }
 
 // Venue
 export interface VenueCardDto {
   id: string;
   name: string;
+  coverPhotoUrl?: string;
   address: string;
   category: string;
-  coverPhotoUrl?: string;
-  latitude: number;
-  longitude: number;
   distanceMeters: number;
-  activeCount: number;
-  maleCount: number;
-  femaleCount: number;
+  stats: VenueStatsDto;
   activityLevel: 'low' | 'medium' | 'high';
+  activeGames: number;
+  chatMessageCount: number;
+}
+
+export interface VenueStatsDto {
+  total: number;
+  male: number;
+  female: number;
 }
 
 export interface VenueDetailDto {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   address: string;
   category: string;
-  coverPhotoUrl?: string;
-  photoUrls: string[];
-  phone?: string;
-  website?: string;
-  instagramHandle?: string;
   latitude: number;
   longitude: number;
-  geofenceRadiusMeters: number;
-  openingHours?: string;
-  activeCount: number;
-  isVerified: boolean;
-  createdAt: string;
+  coverPhotoUrl?: string;
+  photoUrls: string[];
+  googleRating?: number;
+  phone?: string;
+  website?: string;
+  workingHours?: string;
+  stats: VenueStatsDto;
+  geofenceRadius: number;
 }
 
-export interface CheckInResult {
+export interface CheckInResultDto {
   checkInId: string;
   venueId: string;
   venueName: string;
@@ -94,51 +110,45 @@ export interface ChatMessageDto {
   id: string;
   senderId: string;
   senderName: string;
-  senderPhotoUrl?: string;
+  senderAvatar?: string;
   type: string;
-  content: string;
+  content?: string;
   mediaUrl?: string;
-  sentAt: string;
+  replyTo?: ChatMessageDto;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 }
 
 // Game
 export interface GameSessionDto {
   id: string;
   gameType: string;
-  status: string;
   hostId: string;
-  hostName: string;
-  playerCount: number;
-  minPlayers: number;
   maxPlayers: number;
-  createdAt: string;
+  minPlayers: number;
+  status: string;
+  players: GamePlayerDto[];
 }
 
 export interface GamePlayerDto {
   userId: string;
   displayName: string;
-  profilePhotoUrl?: string;
-  status: string;
+  avatarUrl?: string;
   score: number;
+  isAlive: boolean;
+  isConnected: boolean;
 }
 
 // Economy
-export interface WalletDto {
-  id: string;
-  balance: number;
-  totalEarned: number;
-  totalSpent: number;
-}
-
-export interface GiftCatalogItem {
+export interface GiftDto {
   id: string;
   name: string;
-  description: string;
-  coinPrice: number;
+  nameAz?: string;
   tier: string;
-  animationUrl: string;
-  iconUrl: string;
-  sortOrder: number;
+  coinPrice: number;
+  iconUrl?: string;
+  animationUrl?: string;
+  venueId?: string;
 }
 
 // Match
@@ -146,10 +156,26 @@ export interface MatchRequestDto {
   id: string;
   senderId: string;
   senderName: string;
-  senderPhotoUrl?: string;
-  venueId: string;
-  venueName: string;
+  senderAvatar?: string;
   introMessage?: string;
-  status: 'pending' | 'accepted' | 'declined';
+  venueId: string;
+  status: string;
   createdAt: string;
+}
+
+export interface ConversationDto {
+  conversationId: string;
+  otherUser: PublicUserDto;
+  lastMessage?: ChatMessageDto;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface ActiveUserDto {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  age: number;
+  interests: string[];
+  isAnonymous: boolean;
 }

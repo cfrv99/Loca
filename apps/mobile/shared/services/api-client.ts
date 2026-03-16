@@ -1,25 +1,24 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/config';
+import { CONFIG } from '../constants/config';
+import { useAuthStore } from '../stores/auth-store';
+import type { ApiResponse } from '../types';
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${CONFIG.API_URL}/api/v1`,
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor — attach JWT
-api.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('access_token');
+// Request interceptor: attach JWT
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Response interceptor — handle 401 (token refresh)
+// Response interceptor: handle 401 auto-refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -28,26 +27,25 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      const refreshToken = useAuthStore.getState().refreshToken;
+      if (!refreshToken) {
+        useAuthStore.getState().logout();
+        return Promise.reject(error);
+      }
+
       try {
-        const refreshToken = await SecureStore.getItemAsync('refresh_token');
-        if (!refreshToken) throw new Error('No refresh token');
+        const res = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
+          `${CONFIG.API_URL}/api/v1/auth/refresh`,
+          { refreshToken }
+        );
 
-        const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { accessToken, refreshToken: newRefreshToken } = res.data.data;
-        await SecureStore.setItemAsync('access_token', accessToken);
-        await SecureStore.setItemAsync('refresh_token', newRefreshToken);
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Token refresh failed — force logout
-        await SecureStore.deleteItemAsync('access_token');
-        await SecureStore.deleteItemAsync('refresh_token');
-        // Navigate to login would be handled by auth state change
-        return Promise.reject(refreshError);
+        if (res.data.success && res.data.data) {
+          useAuthStore.getState().setTokens(res.data.data.accessToken, res.data.data.refreshToken);
+          originalRequest.headers.Authorization = `Bearer ${res.data.data.accessToken}`;
+          return api(originalRequest);
+        }
+      } catch {
+        useAuthStore.getState().logout();
       }
     }
 

@@ -1,31 +1,28 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { api } from '@/shared/services/api-client';
-import type { ApiResponse, CursorPageResponse, VenueCardDto, VenueDetailDto } from '@/shared/types';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { api } from '../../../shared/services/api-client';
+import type { ApiResponse, CursorPageResponse, VenueCardDto } from '../../../shared/types';
 
 export function useVenuesNearby() {
   return useInfiniteQuery({
     queryKey: ['venues', 'nearby'],
     queryFn: async ({ pageParam }) => {
       const res = await api.get<ApiResponse<CursorPageResponse<VenueCardDto>>>('/venues/nearby', {
-        params: { cursor: pageParam, pageSize: 20, lat: 40.4093, lng: 49.8671 },
+        params: {
+          lat: 40.4093, // Baku default - in prod: get from expo-location
+          lng: 49.8671,
+          cursor: pageParam,
+          pageSize: 20,
+        },
       });
-      return res.data.data!;
+      if (!res.data.success || !res.data.data) {
+        throw new Error(res.data.error?.message ?? 'Failed to load venues');
+      }
+      return res.data.data;
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor : undefined),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.nextCursor : undefined,
     staleTime: 1000 * 60 * 2,
     retry: 2,
-  });
-}
-
-export function useVenueDetail(venueId: string) {
-  return useQuery({
-    queryKey: ['venues', venueId],
-    queryFn: async () => {
-      const res = await api.get<ApiResponse<VenueDetailDto>>(`/venues/${venueId}`);
-      return res.data.data!;
-    },
-    staleTime: 1000 * 60 * 5,
-    enabled: !!venueId,
   });
 }

@@ -1,173 +1,140 @@
+using System.Text.Json;
+using Loca.Application.DTOs;
+using Loca.Domain.Entities;
 using Loca.Domain.Enums;
 
 namespace Loca.Services.Game.Engine;
 
-public interface IGameEngine
+public static class GameStateMachine
 {
-    GameType GameType { get; }
-    object InitializeState(List<Guid> playerIds);
-    object ProcessAction(object state, Guid playerId, string action, string? data);
-    bool IsGameOver(object state);
-    Dictionary<Guid, int> GetScores(object state);
-}
-
-public class MafiaEngine : IGameEngine
-{
-    public GameType GameType => GameType.Mafia;
-
-    public object InitializeState(List<Guid> playerIds)
+    public static (int min, int max) GetPlayerLimits(GameType type) => type switch
     {
-        var state = new MafiaState
-        {
-            Phase = MafiaPhase.Day,
-            Round = 1,
-            AlivePlayers = new List<Guid>(playerIds),
-            Roles = AssignRoles(playerIds),
-            Votes = new Dictionary<Guid, Guid>()
-        };
-        return state;
-    }
+        GameType.Mafia => (5, 12),
+        GameType.TruthOrDare => (3, 10),
+        GameType.Uno => (2, 6),
+        GameType.Domino => (2, 4),
+        GameType.QuizBattle => (2, 20),
+        GameType.WouldYouRather => (2, 20),
+        _ => (2, 10)
+    };
 
-    public object ProcessAction(object state, Guid playerId, string action, string? data)
+    public static void InitializeGame(GameSession session)
     {
-        var mafiaState = (MafiaState)state;
-
-        switch (action.ToLower())
+        switch (session.GameType)
         {
-            case "vote":
-                if (data != null && Guid.TryParse(data, out var targetId))
-                {
-                    mafiaState.Votes[playerId] = targetId;
-                    // Check if all alive players voted
-                    if (mafiaState.Votes.Count >= mafiaState.AlivePlayers.Count)
-                    {
-                        ProcessVoteResult(mafiaState);
-                    }
-                }
+            case GameType.Mafia:
+                InitializeMafia(session);
                 break;
-
-            case "night_action":
-                if (mafiaState.Phase == MafiaPhase.Night && data != null)
-                {
-                    ProcessNightAction(mafiaState, playerId, Guid.Parse(data));
-                }
+            case GameType.TruthOrDare:
+                InitializeTruthOrDare(session);
+                break;
+            default:
+                session.StateJson = JsonSerializer.Serialize(new { round = 1, turn = 0 });
                 break;
         }
-
-        return mafiaState;
     }
 
-    public bool IsGameOver(object state)
+    private static void InitializeMafia(GameSession session)
     {
-        var mafiaState = (MafiaState)state;
-        var mafiaCount = mafiaState.AlivePlayers.Count(p => mafiaState.Roles[p] == MafiaRole.Mafia);
-        var civilianCount = mafiaState.AlivePlayers.Count - mafiaCount;
-
-        return mafiaCount == 0 || mafiaCount >= civilianCount;
-    }
-
-    public Dictionary<Guid, int> GetScores(object state)
-    {
-        var mafiaState = (MafiaState)state;
-        var mafiaCount = mafiaState.AlivePlayers.Count(p => mafiaState.Roles[p] == MafiaRole.Mafia);
-        var mafiaWins = mafiaCount > 0;
-
-        return mafiaState.Roles.ToDictionary(
-            kvp => kvp.Key,
-            kvp => (mafiaWins && kvp.Value == MafiaRole.Mafia) ||
-                   (!mafiaWins && kvp.Value != MafiaRole.Mafia) ? 100 : 0
-        );
-    }
-
-    private static Dictionary<Guid, MafiaRole> AssignRoles(List<Guid> playerIds)
-    {
-        var roles = new Dictionary<Guid, MafiaRole>();
-        var shuffled = playerIds.OrderBy(_ => Random.Shared.Next()).ToList();
-
-        var mafiaCount = shuffled.Count switch
-        {
-            <= 6 => 1,
-            <= 9 => 2,
-            _ => 3
-        };
+        var players = session.Players.ToList();
+        var roles = AssignMafiaRoles(players.Count);
+        var shuffled = players.OrderBy(_ => Random.Shared.Next()).ToList();
 
         for (int i = 0; i < shuffled.Count; i++)
         {
-            if (i < mafiaCount)
-                roles[shuffled[i]] = MafiaRole.Mafia;
-            else if (i == mafiaCount)
-                roles[shuffled[i]] = MafiaRole.Doctor;
-            else if (i == mafiaCount + 1)
-                roles[shuffled[i]] = MafiaRole.Detective;
-            else
-                roles[shuffled[i]] = MafiaRole.Civilian;
+            shuffled[i].Role = roles[i].ToString();
+            shuffled[i].IsAlive = true;
         }
 
-        return roles;
-    }
-
-    private static void ProcessVoteResult(MafiaState state)
-    {
-        var voteCounts = state.Votes.Values.GroupBy(v => v)
-            .OrderByDescending(g => g.Count())
-            .First();
-
-        var eliminatedId = voteCounts.Key;
-        state.AlivePlayers.Remove(eliminatedId);
-        state.EliminatedPlayers.Add(eliminatedId);
-        state.Votes.Clear();
-        state.Phase = MafiaPhase.Night;
-    }
-
-    private static void ProcessNightAction(MafiaState state, Guid actorId, Guid targetId)
-    {
-        var role = state.Roles[actorId];
-        switch (role)
+        session.CurrentPhase = MafiaPhase.Night.ToString();
+        session.PhaseDeadline = DateTime.UtcNow.AddSeconds(45);
+        session.StateJson = JsonSerializer.Serialize(new
         {
-            case MafiaRole.Mafia:
-                state.MafiaTarget = targetId;
-                break;
-            case MafiaRole.Doctor:
-                state.DoctorTarget = targetId;
-                break;
-            case MafiaRole.Detective:
-                state.DetectiveTarget = targetId;
-                break;
-        }
-
-        // Check if all night actions are done
-        var nightActors = state.AlivePlayers.Where(p =>
-            state.Roles[p] is MafiaRole.Mafia or MafiaRole.Doctor or MafiaRole.Detective).ToList();
-
-        if (state.MafiaTarget.HasValue &&
-            (!state.AlivePlayers.Any(p => state.Roles[p] == MafiaRole.Doctor) || state.DoctorTarget.HasValue) &&
-            (!state.AlivePlayers.Any(p => state.Roles[p] == MafiaRole.Detective) || state.DetectiveTarget.HasValue))
-        {
-            // Process night
-            if (state.MafiaTarget != state.DoctorTarget)
-            {
-                state.AlivePlayers.Remove(state.MafiaTarget.Value);
-                state.EliminatedPlayers.Add(state.MafiaTarget.Value);
-            }
-
-            state.MafiaTarget = null;
-            state.DoctorTarget = null;
-            state.DetectiveTarget = null;
-            state.Phase = MafiaPhase.Day;
-            state.Round++;
-        }
+            phase = "Night",
+            round = 1,
+            mafiaTarget = (string?)null,
+            doctorTarget = (string?)null,
+            detectiveTarget = (string?)null,
+            votes = new Dictionary<string, string>()
+        });
     }
-}
 
-public class MafiaState
-{
-    public MafiaPhase Phase { get; set; }
-    public int Round { get; set; }
-    public List<Guid> AlivePlayers { get; set; } = new();
-    public List<Guid> EliminatedPlayers { get; set; } = new();
-    public Dictionary<Guid, MafiaRole> Roles { get; set; } = new();
-    public Dictionary<Guid, Guid> Votes { get; set; } = new();
-    public Guid? MafiaTarget { get; set; }
-    public Guid? DoctorTarget { get; set; }
-    public Guid? DetectiveTarget { get; set; }
+    private static void InitializeTruthOrDare(GameSession session)
+    {
+        var players = session.Players.ToList();
+        var currentTurn = Random.Shared.Next(0, players.Count);
+
+        session.CurrentPhase = "Choosing";
+        session.PhaseDeadline = DateTime.UtcNow.AddSeconds(60);
+        session.StateJson = JsonSerializer.Serialize(new
+        {
+            currentPlayerIndex = currentTurn,
+            currentPlayerId = players[currentTurn].UserId,
+            round = 1,
+        });
+    }
+
+    private static List<MafiaRole> AssignMafiaRoles(int playerCount) => playerCount switch
+    {
+        5 => new() { MafiaRole.Mafia, MafiaRole.Doctor, MafiaRole.Detective, MafiaRole.Citizen, MafiaRole.Citizen },
+        6 => new() { MafiaRole.Mafia, MafiaRole.Mafia, MafiaRole.Doctor, MafiaRole.Detective, MafiaRole.Citizen, MafiaRole.Citizen },
+        7 => new() { MafiaRole.Mafia, MafiaRole.Mafia, MafiaRole.Doctor, MafiaRole.Detective, MafiaRole.Citizen, MafiaRole.Citizen, MafiaRole.Citizen },
+        8 => new() { MafiaRole.Mafia, MafiaRole.Mafia, MafiaRole.Doctor, MafiaRole.Detective, MafiaRole.Citizen, MafiaRole.Citizen, MafiaRole.Citizen, MafiaRole.Citizen },
+        _ => Enumerable.Range(0, playerCount).Select(i => i < playerCount / 4 ? MafiaRole.Mafia :
+            i == playerCount / 4 ? MafiaRole.Doctor : i == playerCount / 4 + 1 ? MafiaRole.Detective : MafiaRole.Citizen).ToList()
+    };
+
+    public static object GetPlayerState(GameSession session, Guid playerId)
+    {
+        var player = session.Players.FirstOrDefault(p => p.UserId == playerId);
+        if (player is null) return new { };
+
+        return session.GameType switch
+        {
+            GameType.Mafia => GetMafiaPlayerState(session, player),
+            _ => new { role = player.Role, score = player.Score, phase = session.CurrentPhase }
+        };
+    }
+
+    private static object GetMafiaPlayerState(GameSession session, GamePlayer player)
+    {
+        var role = Enum.Parse<MafiaRole>(player.Role!);
+        var alivePlayers = session.Players.Where(p => p.IsAlive).Select(p => new { p.UserId, p.IsAlive }).ToList();
+
+        // Mafia players can see other mafia
+        var teamMates = role == MafiaRole.Mafia
+            ? session.Players.Where(p => p.Role == MafiaRole.Mafia.ToString() && p.UserId != player.UserId)
+                .Select(p => p.UserId).ToList()
+            : new List<Guid>();
+
+        return new
+        {
+            role = player.Role,
+            isAlive = player.IsAlive,
+            phase = session.CurrentPhase,
+            phaseDeadline = session.PhaseDeadline,
+            alivePlayers,
+            teamMates
+        };
+    }
+
+    public static object ProcessAction(GameSession session, Guid userId, GameActionDto action)
+    {
+        // Simplified action processing - in production this would be much more complex
+        return new { processed = true, actionType = action.ActionType };
+    }
+
+    public static GameResultDto GetResult(GameSession session)
+    {
+        var scores = session.Players.ToDictionary(p => p.UserId, p => p.Score);
+        var winner = session.Players.OrderByDescending(p => p.Score).FirstOrDefault();
+        return new GameResultDto(
+            WinnerId: winner?.UserId,
+            WinnerTeam: null,
+            Scores: scores,
+            Duration: session.CompletedAt.HasValue && session.StartedAt.HasValue
+                ? session.CompletedAt.Value - session.StartedAt.Value
+                : TimeSpan.Zero
+        );
+    }
 }

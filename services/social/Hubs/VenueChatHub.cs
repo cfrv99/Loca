@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Loca.Application.DTOs;
 using Loca.Application.Interfaces;
 using Loca.Domain.Entities;
@@ -7,8 +6,8 @@ using Loca.Domain.Interfaces;
 using Loca.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
 
 namespace Loca.Services.Social.Hubs;
 
@@ -16,137 +15,146 @@ namespace Loca.Services.Social.Hubs;
 public class VenueChatHub : Hub
 {
     private readonly IRedisService _redis;
-    private readonly IUserRepository _users;
+    private readonly ICheckInRepository _checkIns;
+    private readonly LocaDbContext _db;
     private readonly ILogger<VenueChatHub> _logger;
-    private readonly LocaDbContext _context;
 
-    public VenueChatHub(
-        IRedisService redis,
-        IUserRepository users,
-        ILogger<VenueChatHub> logger,
-        LocaDbContext context)
+    public VenueChatHub(IRedisService redis, ICheckInRepository checkIns, LocaDbContext db, ILogger<VenueChatHub> logger)
     {
         _redis = redis;
-        _users = users;
+        _checkIns = checkIns;
+        _db = db;
         _logger = logger;
-        _context = context;
     }
-
-    private Guid GetUserId() => Guid.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
     public override async Task OnConnectedAsync()
     {
-        _logger.LogInformation("User {ConnectionId} connected to VenueChatHub", Context.ConnectionId);
+        var userId = GetUserId();
+        await _redis.SetUserOnlineAsync(Guid.Parse(userId), true);
+        _logger.LogInformation("User {UserId} connected to VenueChatHub", userId);
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogInformation("User {ConnectionId} disconnected from VenueChatHub", Context.ConnectionId);
+        var userId = GetUserId();
+        var userGuid = Guid.Parse(userId);
+        await _redis.SetUserOnlineAsync(userGuid, false);
+
+        var venues = await _redis.GetUserVenuesAsync(userGuid);
+        foreach (var venueId in venues)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"venue_{venueId}");
+            await _redis.RemoveActiveUserAsync(venueId, userGuid);
+            await Clients.Group($"venue_{venueId}").SendAsync("userLeft", userId);
+        }
+        _logger.LogInformation("User {UserId} disconnected from VenueChatHub", userId);
         await base.OnDisconnectedAsync(exception);
     }
 
-    /// <summary>
-    /// Join a venue's public chat room
-    /// </summary>
-    public async Task JoinVenue(Guid venueId)
+    public async Task JoinVenue(string venueId)
     {
         var userId = GetUserId();
-        var groupName = $"venue_{venueId}";
+        var userGuid = Guid.Parse(userId);
+        var venueGuid = Guid.Parse(venueId);
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-        await _redis.AddActiveUserAsync(venueId, userId);
-
-        var user = await _users.GetByIdAsync(userId);
-        var displayName = user?.DisplayName ?? "Anonymous";
-
-        _logger.LogInformation("User {UserId} joined venue {VenueId}", userId, venueId);
-
-        await Clients.Group(groupName).SendAsync("userJoined", new
+        // Verify active check-in
+        var checkIn = await _checkIns.GetActiveCheckInAsync(userGuid, venueGuid);
+        if (checkIn is null)
         {
-            userId,
-            displayName,
-            joinedAt = DateTime.UtcNow
-        });
-
-        // Send recent messages to the joining user
-        var recentMessages = await _redis.GetRecentMessagesAsync(venueId);
-        if (recentMessages.Count > 0)
-        {
-            await Clients.Caller.SendAsync("recentMessages", recentMessages.Select(m =>
-                JsonSerializer.Deserialize<ChatMessageDto>(m)));
+            await Clients.Caller.SendAsync("error", new { code = "NOT_CHECKED_IN", message = "Əvvəlcə QR scan edin" });
+            return;
         }
-    }
 
-    /// <summary>
-    /// Leave a venue's public chat room
-    /// </summary>
-    public async Task LeaveVenue(Guid venueId)
-    {
-        var userId = GetUserId();
-        var groupName = $"venue_{venueId}";
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"venue_{venueId}");
+        await _redis.AddActiveUserAsync(venueGuid, userGuid);
 
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-        await _redis.RemoveActiveUserAsync(venueId, userId);
-
-        _logger.LogInformation("User {UserId} left venue {VenueId}", userId, venueId);
-
-        await Clients.Group(groupName).SendAsync("userLeft", new { userId });
-    }
-
-    /// <summary>
-    /// Send a message to the venue's public chat
-    /// </summary>
-    public async Task SendMessage(Guid venueId, string content, string type = "text", string? mediaUrl = null)
-    {
-        var userId = GetUserId();
-        var user = await _users.GetByIdAsync(userId);
-        if (user is null) return;
-
-        if (!Enum.TryParse<MessageType>(type, true, out var messageType))
-            messageType = MessageType.Text;
-
-        // Persist message
-        var message = new ChatMessage
-        {
-            ChatRoomId = venueId, // Using venueId as chatRoomId for simplicity
-            SenderId = userId,
-            Type = messageType,
-            Content = content,
-            MediaUrl = mediaUrl
-        };
-
-        _context.ChatMessages.Add(message);
-        await _context.SaveChangesAsync();
-
-        var messageDto = new ChatMessageDto(
-            Id: message.Id,
-            SenderId: userId,
-            SenderName: user.DisplayName,
-            SenderPhotoUrl: user.ProfilePhotoUrl,
-            Type: type,
-            Content: content,
-            MediaUrl: mediaUrl,
-            SentAt: message.CreatedAt
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
+        var activeUser = new ActiveUserDto(
+            userGuid, user?.DisplayName ?? "Guest", user?.AvatarUrl, user?.GetAge() ?? 0,
+            new List<string>(), checkIn.IsAnonymous
         );
 
-        // Cache in Redis
-        await _redis.CacheMessageAsync(venueId, JsonSerializer.Serialize(messageDto));
-
-        // Broadcast to venue group
-        var groupName = $"venue_{venueId}";
-        await Clients.Group(groupName).SendAsync("receiveMessage", messageDto);
-
-        _logger.LogInformation("Message sent by {UserId} in venue {VenueId}", userId, venueId);
+        await Clients.Group($"venue_{venueId}").SendAsync("userJoined", activeUser);
+        var stats = await _redis.GetVenueStatsAsync(venueGuid);
+        await Clients.Caller.SendAsync("activeUsersUpdated", stats);
     }
 
-    /// <summary>
-    /// Send typing indicator
-    /// </summary>
-    public async Task SendTyping(Guid venueId)
+    public async Task LeaveVenue(string venueId)
     {
         var userId = GetUserId();
-        var groupName = $"venue_{venueId}";
-        await Clients.OthersInGroup(groupName).SendAsync("userTyping", new { userId });
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"venue_{venueId}");
+        await _redis.RemoveActiveUserAsync(Guid.Parse(venueId), Guid.Parse(userId));
+        await Clients.Group($"venue_{venueId}").SendAsync("userLeft", userId);
     }
+
+    public async Task SendMessage(string venueId, string content, string type, string? replyToId, object? metadata)
+    {
+        var userId = GetUserId();
+        var userGuid = Guid.Parse(userId);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
+
+        var message = new ChatMessage
+        {
+            RoomId = $"venue_{venueId}",
+            SenderId = userGuid,
+            MessageType = Enum.Parse<MessageType>(type, true),
+            Content = content,
+            ReplyToId = replyToId != null ? Guid.Parse(replyToId) : null,
+        };
+
+        _db.Messages.Add(message);
+        await _db.SaveChangesAsync();
+
+        var dto = new ChatMessageDto(
+            message.Id, userGuid, user?.DisplayName ?? "Guest", user?.AvatarUrl,
+            type, content, null, null, metadata, message.CreatedAt
+        );
+
+        await _redis.CacheMessageAsync($"venue_{venueId}", dto);
+        await Clients.Group($"venue_{venueId}").SendAsync("receiveMessage", dto);
+    }
+
+    public async Task SendReaction(string messageId, string emoji)
+    {
+        var userId = Guid.Parse(GetUserId());
+        var msgGuid = Guid.Parse(messageId);
+
+        var existing = await _db.MessageReactions
+            .FirstOrDefaultAsync(r => r.MessageId == msgGuid && r.UserId == userId && r.Emoji == emoji);
+
+        if (existing is not null)
+            _db.MessageReactions.Remove(existing);
+        else
+            _db.MessageReactions.Add(new MessageReaction { MessageId = msgGuid, UserId = userId, Emoji = emoji });
+
+        await _db.SaveChangesAsync();
+
+        var reactions = await _db.MessageReactions
+            .Where(r => r.MessageId == msgGuid)
+            .GroupBy(r => r.Emoji)
+            .Select(g => new ReactionDto(g.Key, g.Count(), g.Select(r => r.UserId).ToList()))
+            .ToListAsync();
+
+        // Get room for this message
+        var msg = await _db.Messages.FirstOrDefaultAsync(m => m.Id == msgGuid);
+        if (msg is not null)
+            await Clients.Group(msg.RoomId).SendAsync("reactionUpdated", messageId, reactions);
+    }
+
+    public async Task StartTyping(string venueId)
+    {
+        var userId = GetUserId();
+        var name = Context.User?.FindFirst("name")?.Value ?? "Guest";
+        await Clients.OthersInGroup($"venue_{venueId}").SendAsync("typingStarted", userId, name);
+    }
+
+    public async Task StopTyping(string venueId)
+    {
+        var userId = GetUserId();
+        await Clients.OthersInGroup($"venue_{venueId}").SendAsync("typingStopped", userId);
+    }
+
+    private string GetUserId() => Context.User?.FindFirst("sub")?.Value
+        ?? throw new HubException("User not authenticated");
 }

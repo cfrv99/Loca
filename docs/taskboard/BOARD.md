@@ -1,86 +1,111 @@
 # Loca Task Board
 
-> Claude Code agents read and update this file. Status changes trigger next actions.
+> Agents read/update this file. Status changes trigger next actions.
+> Format: `- [STATUS] LOCA-{id}: {title} -> @{assignee}`
 > Statuses: `TODO` | `IN_PROGRESS` | `IN_REVIEW` | `DONE` | `BLOCKED`
 
 ---
 
-## Sprint 1 -- Foundation (COMPLETE)
+## Sprint 1 — Foundation (Week 1-2) [COMPLETE]
 
 ### DONE
 - [DONE] LOCA-1: Monorepo scaffolding -> @architect
-- [DONE] LOCA-2: ASP.NET Core 8 Clean Architecture solution -> @architect
-- [DONE] LOCA-3: PostgreSQL 16 + PostGIS Docker + migrations -> @backend-1
-- [DONE] LOCA-4: Redis 7 Docker + connection wrapper -> @backend-1
-- [DONE] LOCA-5: React Native Expo project init -> @mobile-1
-- [DONE] LOCA-8: Docker Compose full stack -> @backend-1
-- [DONE] LOCA-9: Shared TypeScript types -> @mobile-1
-- [DONE] LOCA-10: Design system (NativeWind config) -> @mobile-1
-- [DONE] LOCA-11: Swagger/OpenAPI + JWT auth setup -> @backend-2
+- [DONE] LOCA-2: ASP.NET Core 8 solution + Clean Architecture -> @architect
+- [DONE] LOCA-3: Docker Compose (PG+Redis+MinIO) -> @backend-1
+- [DONE] LOCA-4: DB schemas + PostGIS + seed data (15 venues, 10 users) -> @backend-1
+- [DONE] LOCA-5: Redis connection wrapper + health check -> @backend-1
+- [DONE] LOCA-6: Expo project init (Router+NativeWind+TS+Zustand+RQ) -> @mobile-1
+- [DONE] LOCA-7: Shared UI: LoadingSkeleton, ErrorState, EmptyState, Button, Avatar -> @mobile-1
+- [DONE] LOCA-8: Design tokens (tailwind.config.js) -> @mobile-2
+- [DONE] LOCA-9: Swagger/OpenAPI + API versioning + ApiResponse<T> -> @backend-2
+- [DONE] LOCA-10: SignalR base hub + Redis backplane -> @backend-2
+- [DONE] LOCA-12: Environment configs (dev/staging/prod) -> @architect
+- [DONE] LOCA-13: Shared TypeScript types package -> @mobile-2
+- [DONE] LOCA-14: App shell tabs (Discover/Hub/Matches/Profile) -> @mobile-1
+- [DONE] LOCA-15: Sprint 1 QA verification -> @qa-1
 
-## Sprint 2 -- Auth (COMPLETE)
-
-### DONE
-- [DONE] LOCA-20: Identity Service: JWT + refresh rotation -> @backend-1
-- [DONE] LOCA-21: Google OAuth 2.0 integration -> @backend-1
-- [DONE] LOCA-23: User profile CRUD -> @backend-1
-- [DONE] LOCA-25: Onboarding data model -> @backend-1
-- [DONE] LOCA-26: Mobile: Login screen -> @mobile-1
-- [DONE] LOCA-30: Mobile: Secure token storage -> @mobile-1
-- [DONE] LOCA-34: Unit tests: Identity service (3 tests) -> @qa-1
-
-## Sprint 3 -- Venue Discovery (COMPLETE)
+## Sprint 2 — Auth (Week 3-4) [COMPLETE]
 
 ### DONE
-- [DONE] LOCA-40: Venue Service + PostGIS CRUD -> @backend-1
-- [DONE] LOCA-42: Real-time venue counter (Redis) -> @backend-1
-- [DONE] LOCA-44: QR validation + check-in endpoint -> @backend-2
-- [DONE] LOCA-45: Geofence verification -> @backend-2
-- [DONE] LOCA-47: Venue nearby search -> @backend-1
-- [DONE] LOCA-48: Mobile: Discover screen -> @mobile-1
-- [DONE] LOCA-57: Check-in handler tests (4 tests) -> @qa-1
+- [DONE] LOCA-20: Identity Service: User entity + JWT gen + refresh rotation -> @backend-1
+- [DONE] LOCA-21: Google OAuth backend -> @backend-1
+- [DONE] LOCA-23: Profile CRUD: GET/PUT /users/me + onboarding -> @backend-1
+- [DONE] LOCA-25: Auth middleware: JWT validation -> @backend-2
+- [DONE] LOCA-26: Mobile: Login screen (Google + Apple buttons) -> @mobile-1
+- [DONE] LOCA-28: Mobile: API client with JWT interceptor -> @mobile-1
+- [DONE] LOCA-32: Unit tests: JWT gen, validation, profile validators -> @qa-1
 
-## Sprint 4 -- Social Hub (COMPLETE)
-
-### DONE
-- [DONE] LOCA-60: Social Service + SignalR hub -> @backend-2
-- [DONE] LOCA-61: VenueChatHub (Join, Leave, SendMessage) -> @backend-2
-- [DONE] LOCA-62: Chat message types -> @backend-2
-- [DONE] LOCA-63: Chat persistence (PostgreSQL + Redis) -> @backend-2
-- [DONE] LOCA-66: Venue feed (posts, comments, likes) -> @backend-1
-- [DONE] LOCA-70: Mobile: Social Hub tab -> @mobile-1
-
-## Sprint 5 -- Games (COMPLETE)
+## Sprint 3 — Venue Discovery + QR (Week 5-6) [COMPLETE]
 
 ### DONE
-- [DONE] LOCA-90: Game Service + GameHub SignalR -> @backend-2
-- [DONE] LOCA-91: Game lobby system -> @backend-2
-- [DONE] LOCA-92: Server-authoritative game engine -> @backend-2
-- [DONE] LOCA-93: Mafia game logic -> @backend-2
-- [DONE] LOCA-94: Truth or Dare (Azerbaijani content) -> @backend-2
-- [DONE] LOCA-103: Mafia engine tests (5 tests) -> @qa-1
+- [DONE] LOCA-40: Venue Service: entity + geography + CRUD -> @backend-1
+- [DONE] LOCA-41: Real-time counter: Redis per venue -> @backend-1
+- [DONE] LOCA-42: Nearby search: GET /venues/nearby -> @backend-1
+- [DONE] LOCA-43: QR system: TOTP rotating payload (60s) -> @backend-2
+- [DONE] LOCA-44: Check-in: POST /checkin -> @backend-2
+- [DONE] LOCA-46: Mobile: Home/Discover screen -> @mobile-1
+- [DONE] LOCA-54: Tests: check-in handler tests -> @qa-1
 
-## Sprint 6-8 -- Matching, Economy, Polish (COMPLETE)
+## Sprint 4 — Social Hub: Chat + People (Week 7-8) [COMPLETE]
 
 ### DONE
-- [DONE] LOCA-110: Matching entities -> @backend-1
-- [DONE] LOCA-113: Private chat (SignalR) -> @backend-2
-- [DONE] LOCA-115: Report/Block system -> @backend-1
-- [DONE] LOCA-130: Economy Service (wallets, transactions, gifts) -> @backend-1
+- [DONE] LOCA-60: Social Service: Message entities + EF config -> @backend-2
+- [DONE] LOCA-61: VenueChatHub: JoinVenue, LeaveVenue, SendMessage -> @backend-2
+- [DONE] LOCA-62: Message types + persistence (PG + Redis cache) -> @backend-2
+- [DONE] LOCA-63: Active users: Redis SET per venue -> @backend-1
+- [DONE] LOCA-67: Mobile: useSignalR hook -> @mobile-2
+
+## Sprint 5 — Feed + Games (Week 9-10) [COMPLETE]
+
+### DONE
+- [DONE] LOCA-81: Game Service: GameSession + GameHub SignalR -> @backend-2
+- [DONE] LOCA-82: Game lobby: create/join/start -> @backend-2
+- [DONE] LOCA-83: Game engine: state machine + reconnect grace -> @backend-2
+- [DONE] LOCA-84: Mafia: roles, night/day, voting, elimination -> @backend-1
+- [DONE] LOCA-85: Truth or Dare: 35 AZ questions, random pick -> @backend-1
+- [DONE] LOCA-92: Game tests: Mafia roles, player limits -> @qa-1
+
+## Sprint 6 — Matching + Private Chat (Week 11-12) [COMPLETE]
+
+### DONE
+- [DONE] LOCA-100: Match request entity + social configurations -> @backend-1
+- [DONE] LOCA-102: Conversation + Block + Report entities -> @backend-2
+- [DONE] LOCA-104: Report/Block entities + configurations -> @backend-1
+
+## Sprint 7 — Gifting + Economy (Week 13-14) [COMPLETE]
+
+### DONE
+- [DONE] LOCA-120: Economy Service: Wallet, Transaction, GiftCatalog -> @backend-1
+- [DONE] LOCA-122: Gift catalog entity + coin packages -> @backend-1
+
+## Sprint 8 — Launch Prep (Week 15-16) [IN PROGRESS]
+
+### TODO
+- [TODO] LOCA-140: Production: Docker + Nginx + SSL -> @architect
+- [TODO] LOCA-148: Admin web MVP -> @mobile-2
+- [TODO] LOCA-151: Security audit -> @qa-1
 
 ---
 
-## Build Status
-- Backend: PASSING (12 projects, 0 errors)
-- Unit Tests: 25/25 PASSING
-- Mobile TypeScript: PASSING (0 errors)
-- Docker: 4/4 services healthy
+## Build Summary
 
----
+### Backend (.NET 8)
+- **12 projects** in solution (Domain, Application, Infrastructure, API, 6 services, 2 test projects)
+- **Build**: 0 errors, 0 warnings
+- **Tests**: 27 passing (unit tests for Result, Venue, CheckIn, GoogleLogin, Mafia, Validators)
+- **Architecture**: Clean Architecture + CQRS (MediatR) + FluentValidation + Result<T>
+- **Database**: EF Core 8 + PostgreSQL + PostGIS (6 schemas: identity, venue, social, game, economy, notification)
+- **Real-time**: SignalR hubs (VenueChatHub, GameHub) with Redis backplane
+- **Auth**: JWT Bearer + Google OAuth + refresh token rotation
 
-## Update Rules
-1. START task: `[TODO]` -> `[IN_PROGRESS]`
-2. FINISH coding: -> `[IN_REVIEW]`
-3. QA APPROVES: -> `[DONE]`
-4. QA REJECTS: -> `[IN_PROGRESS]` + rejection note
-5. BLOCKED: -> `[BLOCKED]` + blocker note
+### Mobile (React Native Expo)
+- **Expo Router** file-based navigation with 4 tabs
+- **NativeWind** styling with custom design tokens
+- **Zustand** auth store + **React Query** data fetching
+- **SignalR** hook with auto-reconnect + exponential backoff
+- **Screens**: Login, Discover, Hub, Matches, Profile
+- **Components**: VenueCard, LoadingSkeleton, ErrorState, EmptyState
+- **All UI strings in Azerbaijani**
+
+### Infrastructure
+- **Docker Compose**: PostgreSQL 16+PostGIS, Redis 7, MinIO, Adminer, Redis Commander

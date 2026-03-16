@@ -5,15 +5,25 @@ namespace Loca.Domain.Entities;
 
 public class ChatMessage : BaseEntity
 {
-    public Guid ChatRoomId { get; set; }
+    public string RoomId { get; set; } = string.Empty;
     public Guid SenderId { get; set; }
-    public MessageType Type { get; set; } = MessageType.Text;
-    public string Content { get; set; } = string.Empty;
+    public MessageType MessageType { get; set; }
+    public string? Content { get; set; }
     public string? MediaUrl { get; set; }
-    public string? GiftId { get; set; }
-    public bool IsModerated { get; set; }
+    public Guid? ReplyToId { get; set; }
+    public string? MetadataJson { get; set; }
+    public bool IsPinned { get; set; }
+    public bool IsDeleted { get; set; }
 
     // Navigation
-    public ChatRoom ChatRoom { get; set; } = null!;
-    public User Sender { get; set; } = null!;
+    public ChatMessage? ReplyTo { get; set; }
+    public List<MessageReaction> Reactions { get; set; } = new();
+}
+
+public class MessageReaction
+{
+    public Guid MessageId { get; set; }
+    public Guid UserId { get; set; }
+    public string Emoji { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

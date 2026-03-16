@@ -1,58 +1,64 @@
 using FluentAssertions;
 using Loca.Domain.Entities;
 using Loca.Domain.Enums;
-using NetTopologySuite.Geometries;
 
 namespace Loca.Tests.Unit.Domain;
 
 public class VenueTests
 {
     [Fact]
-    public void Should_ReturnTrue_When_UserIsWithinGeofence()
-    {
-        // Arrange — Sea Breeze Beach Club, Baku
-        var venue = CreateTestVenue(40.5530, 50.3580, 150);
-
-        // User is very close (about 50m)
-        var isWithin = venue.IsWithinGeofence(40.5534, 50.3583);
-
-        isWithin.Should().BeTrue();
-    }
-
-    [Fact]
-    public void Should_ReturnFalse_When_UserIsOutsideGeofence()
-    {
-        var venue = CreateTestVenue(40.5530, 50.3580, 150);
-
-        // User is far away (different city)
-        var isWithin = venue.IsWithinGeofence(41.0, 49.0);
-
-        isWithin.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Should_UseDefaultGeofenceRadius()
+    public void Should_BeWithinGeofence_When_InsideRadius()
     {
         var venue = new Venue
         {
-            Name = "Test Venue",
-            Location = new Point(49.8671, 40.4093) { SRID = 4326 }
+            Latitude = 40.4093,
+            Longitude = 49.8671,
+            GeofenceRadiusMeters = 150
         };
 
-        venue.GeofenceRadiusMeters.Should().Be(150);
+        // Point very close to venue (~10m away)
+        var result = venue.IsWithinGeofence(40.4094, 49.8672);
+        result.Should().BeTrue();
     }
 
-    private static Venue CreateTestVenue(double lat, double lng, int radius)
+    [Fact]
+    public void Should_NotBeWithinGeofence_When_OutsideRadius()
     {
-        return new Venue
+        var venue = new Venue
         {
-            Name = "Test Venue",
-            Address = "Test Address",
-            Category = VenueCategory.Bar,
-            Location = new Point(lng, lat) { SRID = 4326 },
-            Latitude = lat,
-            Longitude = lng,
-            GeofenceRadiusMeters = radius
+            Latitude = 40.4093,
+            Longitude = 49.8671,
+            GeofenceRadiusMeters = 150
         };
+
+        // Point ~5km away
+        var result = venue.IsWithinGeofence(40.45, 49.90);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Should_CalculateDistance_Correctly()
+    {
+        // Baku city center coordinates
+        var distance = Venue.CalculateDistance(40.4093, 49.8671, 40.4100, 49.8680);
+        distance.Should().BeGreaterThan(0);
+        distance.Should().BeLessThan(200); // Should be under 200m for these close points
+    }
+
+    [Fact]
+    public void Should_ValidateQrCode_CurrentWindow()
+    {
+        var secretKey = "test-secret-key-12345";
+        var code = QrCodeGenerator.GenerateTotp(secretKey);
+        var isValid = QrCodeGenerator.ValidateTotp(secretKey, code);
+        isValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Should_RejectInvalidQrCode()
+    {
+        var secretKey = "test-secret-key-12345";
+        var isValid = QrCodeGenerator.ValidateTotp(secretKey, "000000");
+        isValid.Should().BeFalse();
     }
 }

@@ -1,19 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Loca.Services.Social</RootNamespace>
   </PropertyGroup>
-
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Common" Version="8.0.3" />
   </ItemGroup>
-
   <ItemGroup>
-    <ProjectReference Include="..\..\packages\domain\Loca.Domain.csproj" />
-    <ProjectReference Include="..\..\packages\application\Loca.Application.csproj" />
     <ProjectReference Include="..\..\packages\infrastructure\Loca.Infrastructure.csproj" />
   </ItemGroup>
-
 </Project>

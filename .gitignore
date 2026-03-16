@@ -3,52 +3,41 @@ bin/
 obj/
 *.user
 *.suo
-*.userosscache
-*.sln.docstates
-.vs/
-*.db
-*.db-shm
-*.db-wal
-appsettings.*.json
-!appsettings.json
-!appsettings.Development.json
+*.cache
+*.vs/
+*.DotSettings.user
+appsettings.*.local.json
 
 # Node / React Native
 node_modules/
 .expo/
 dist/
 *.tsbuildinfo
-.cache/
-coverage/
+.turbo/
+ios/
+android/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Environment
 .env
 .env.local
 .env.*.local
 
-# IDE
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
 # Docker
 docker-compose.override.yml
 
-# Build artifacts
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# MinIO data
-minio-data/
-
-# Test results
+# Test Results
 TestResults/
-test-results/
-playwright-report/
+coverage/
+
+# Build
+publish/

@@ -6,29 +6,36 @@ namespace Loca.Domain.Entities;
 public class User : BaseEntity
 {
     public string Email { get; set; } = string.Empty;
-    public string? PasswordHash { get; set; }
+    public string? Phone { get; set; }
     public string DisplayName { get; set; } = string.Empty;
-    public string? FirstName { get; set; }
-    public string? LastName { get; set; }
-    public DateTime? DateOfBirth { get; set; }
-    public Gender? Gender { get; set; }
     public string? Bio { get; set; }
-    public string? ProfilePhotoUrl { get; set; }
-    public string? GoogleId { get; set; }
-    public string? AppleId { get; set; }
-    public UserStatus Status { get; set; } = UserStatus.Active;
-    public bool IsOnboardingComplete { get; set; }
-    public DateTime? LastActiveAt { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string? ThumbnailUrl { get; set; }
+    public DateTime DateOfBirth { get; set; }
+    public Gender Gender { get; set; }
+    public AuthProvider AuthProvider { get; set; }
+    public string? AuthProviderId { get; set; }
+    public bool IsOnboarded { get; set; }
+    public bool IsAnonymousDefault { get; set; }
+    public bool IsPremium { get; set; }
+    public DateTime? PremiumExpiresAt { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 
-    // Onboarding data
+    // Navigation properties
     public List<string> Interests { get; set; } = new();
-    public List<UserPurpose> Purposes { get; set; } = new();
-    public VibePreference? VibePreference { get; set; }
-    public PrivacyLevel PrivacyLevel { get; set; } = PrivacyLevel.Public;
-
-    // Navigation
-    public UserProfile? Profile { get; set; }
+    public List<string> Purposes { get; set; } = new();
+    public List<UserVibePreference> VibePreferences { get; set; } = new();
     public List<RefreshToken> RefreshTokens { get; set; } = new();
-    public List<CheckIn> CheckIns { get; set; } = new();
-    public Wallet? Wallet { get; set; }
+
+    public int GetAge() => (int)((DateTime.UtcNow - DateOfBirth).TotalDays / 365.25);
+    public bool IsAdult() => GetAge() >= 18;
+}
+
+public class UserVibePreference
+{
+    public Guid UserId { get; set; }
+    public string Vibe { get; set; } = string.Empty;
+    public decimal Weight { get; set; } = 1.0m;
 }

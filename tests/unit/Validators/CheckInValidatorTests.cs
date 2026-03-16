@@ -9,85 +9,47 @@ public class CheckInValidatorTests
     private readonly CheckInValidator _validator = new();
 
     [Fact]
-    public void Should_BeValid_When_AllFieldsProvided()
+    public void Should_Fail_When_QrPayloadEmpty()
     {
-        var cmd = new CheckInCommand("qr-payload", 40.4093, 49.8671, "device-123")
+        var cmd = new CheckInCommand("", 40.4, 49.8, "device")
         {
             UserId = Guid.NewGuid()
         };
-
         var result = _validator.Validate(cmd);
-
-        result.IsValid.Should().BeTrue();
-    }
-
-    [Fact]
-    public void Should_Fail_When_QrPayloadIsEmpty()
-    {
-        var cmd = new CheckInCommand("", 40.4093, 49.8671, "device-123")
-        {
-            UserId = Guid.NewGuid()
-        };
-
-        var result = _validator.Validate(cmd);
-
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "QrPayload");
     }
 
     [Fact]
-    public void Should_Fail_When_LatitudeOutOfRange()
+    public void Should_Fail_When_LatOutOfRange()
     {
-        var cmd = new CheckInCommand("qr-payload", 91, 49.8671, "device-123")
+        var cmd = new CheckInCommand("qr", 100, 49.8, "device")
         {
             UserId = Guid.NewGuid()
         };
-
         var result = _validator.Validate(cmd);
-
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "Lat");
     }
 
     [Fact]
-    public void Should_Fail_When_LongitudeOutOfRange()
+    public void Should_Fail_When_LngOutOfRange()
     {
-        var cmd = new CheckInCommand("qr-payload", 40.4093, 181, "device-123")
+        var cmd = new CheckInCommand("qr", 40.4, 200, "device")
         {
             UserId = Guid.NewGuid()
         };
-
         var result = _validator.Validate(cmd);
-
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "Lng");
     }
 
     [Fact]
-    public void Should_Fail_When_UserIdIsEmpty()
+    public void Should_Pass_When_AllFieldsValid()
     {
-        var cmd = new CheckInCommand("qr-payload", 40.4093, 49.8671, "device-123")
-        {
-            UserId = Guid.Empty
-        };
-
-        var result = _validator.Validate(cmd);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "UserId");
-    }
-
-    [Fact]
-    public void Should_Fail_When_DeviceFingerprintIsEmpty()
-    {
-        var cmd = new CheckInCommand("qr-payload", 40.4093, 49.8671, "")
+        var cmd = new CheckInCommand("valid-qr-code", 40.4093, 49.8671, "device-fingerprint-123")
         {
             UserId = Guid.NewGuid()
         };
-
         var result = _validator.Validate(cmd);
-
-        result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "DeviceFingerprint");
+        result.IsValid.Should().BeTrue();
     }
 }

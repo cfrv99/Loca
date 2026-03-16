@@ -1,44 +1,28 @@
 namespace Loca.Application.DTOs;
 
-public record WalletDto(
-    Guid Id,
-    int Balance,
-    int TotalEarned,
-    int TotalSpent
-);
+public record BalanceDto(int CoinBalance, int TotalPurchased, int TotalSpent);
 
-public record GiftCatalogItemDto(
+public record PurchaseRequest(string Platform, string ReceiptData, string ProductId);
+
+public record PurchaseResponse(int CoinsAdded, int NewBalance, Guid TransactionId);
+
+public record GiftDto(
     Guid Id,
     string Name,
-    string Description,
-    int CoinPrice,
+    string? NameAz,
     string Tier,
-    string AnimationUrl,
-    string IconUrl,
-    int SortOrder
+    int CoinPrice,
+    string? IconUrl,
+    string? AnimationUrl,
+    Guid? VenueId
 );
 
-public record SendGiftResultDto(
-    Guid TransactionId,
-    string GiftName,
-    string AnimationUrl,
-    int CoinCost,
-    int RemainingBalance
+public record SendGiftRequest(
+    Guid GiftId,
+    Guid RecipientId,
+    string Context, // public_chat or private_chat
+    Guid? VenueId,
+    Guid? ConversationId
 );
 
-public record CoinPackageDto(
-    string PackageId,
-    string Name,
-    int CoinAmount,
-    decimal PriceAzn,
-    string? BonusLabel
-);
-
-public record TransactionDto(
-    Guid Id,
-    string Type,
-    int Amount,
-    int BalanceAfter,
-    string? Description,
-    DateTime CreatedAt
-);
+public record SendGiftResponse(Guid TransactionId, int NewBalance);

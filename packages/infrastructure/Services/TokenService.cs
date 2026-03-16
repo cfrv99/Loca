@@ -18,22 +18,23 @@ public class TokenService : ITokenService
     public string GenerateAccessToken(User user)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-            _config["Jwt:Secret"] ?? "super-secret-key-for-development-only-min-32-chars"));
+            _config["Jwt:Secret"] ?? "loca-dev-secret-key-minimum-32-characters-long!!"));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Name, user.DisplayName),
-            new("sub", user.Id.ToString())
+            new("sub", user.Id.ToString()),
+            new("email", user.Email),
+            new("name", user.DisplayName),
+            new("gender", user.Gender.ToString().ToLower()),
+            new("premium", user.IsPremium.ToString().ToLower()),
         };
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"] ?? "loca-api",
             audience: _config["Jwt:Audience"] ?? "loca-mobile",
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
+            expires: DateTime.UtcNow.AddMinutes(60),
             signingCredentials: creds
         );
 
@@ -48,32 +49,9 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(randomBytes);
     }
 
-    public Guid? ValidateAccessToken(string token)
+    public string HashToken(string token)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-            _config["Jwt:Secret"] ?? "super-secret-key-for-development-only-min-32-chars"));
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        try
-        {
-            var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
-                ValidateIssuer = true,
-                ValidIssuer = _config["Jwt:Issuer"] ?? "loca-api",
-                ValidateAudience = true,
-                ValidAudience = _config["Jwt:Audience"] ?? "loca-mobile",
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
-            }, out _);
-
-            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return userId != null ? Guid.Parse(userId) : null;
-        }
-        catch
-        {
-            return null;
-        }
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToBase64String(bytes);
     }
 }

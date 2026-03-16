@@ -10,11 +10,14 @@ public class GameSessionConfiguration : IEntityTypeConfiguration<GameSession>
     {
         builder.ToTable("game_sessions", "game");
         builder.HasKey(g => g.Id);
-        builder.HasIndex(g => new { g.VenueId, g.Status });
-        builder.Property(g => g.GameState).HasMaxLength(10000);
+        builder.Property(g => g.GameType).HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(g => g.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue("Lobby");
+        builder.Property(g => g.SettingsJson).HasColumnType("jsonb");
+        builder.Property(g => g.StateJson).HasColumnType("jsonb");
+        builder.Property(g => g.CurrentPhase).HasMaxLength(50);
 
-        builder.HasOne(g => g.Venue).WithMany().HasForeignKey(g => g.VenueId);
-        builder.HasOne(g => g.Host).WithMany().HasForeignKey(g => g.HostId);
+        builder.HasIndex(g => new { g.VenueId, g.Status })
+            .HasFilter("status IN ('Lobby','InProgress')");
     }
 }
 
@@ -23,11 +26,12 @@ public class GamePlayerConfiguration : IEntityTypeConfiguration<GamePlayer>
     public void Configure(EntityTypeBuilder<GamePlayer> builder)
     {
         builder.ToTable("game_players", "game");
-        builder.HasKey(p => p.Id);
-        builder.HasIndex(p => new { p.GameSessionId, p.UserId }).IsUnique();
-        builder.Property(p => p.RoleData).HasMaxLength(2000);
+        builder.HasKey(gp => new { gp.SessionId, gp.UserId });
+        builder.Property(gp => gp.Role).HasMaxLength(50);
 
-        builder.HasOne(p => p.GameSession).WithMany(g => g.Players).HasForeignKey(p => p.GameSessionId);
-        builder.HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId);
+        builder.HasOne(gp => gp.Session)
+            .WithMany(gs => gs.Players)
+            .HasForeignKey(gp => gp.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

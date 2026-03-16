@@ -1,5 +1,5 @@
-using System.Security.Claims;
-using System.Text.Json;
+using Loca.Application.DTOs;
+using Loca.Application.Interfaces;
 using Loca.Domain.Entities;
 using Loca.Domain.Enums;
 using Loca.Infrastructure.Persistence;
@@ -14,237 +14,137 @@ namespace Loca.Services.Game.Hubs;
 [Authorize]
 public class GameHub : Hub
 {
-    private readonly LocaDbContext _context;
+    private readonly LocaDbContext _db;
+    private readonly IRedisService _redis;
     private readonly ILogger<GameHub> _logger;
-    private readonly Dictionary<GameType, IGameEngine> _engines;
 
-    public GameHub(LocaDbContext context, ILogger<GameHub> logger)
+    public GameHub(LocaDbContext db, IRedisService redis, ILogger<GameHub> logger)
     {
-        _context = context;
+        _db = db;
+        _redis = redis;
         _logger = logger;
-        _engines = new Dictionary<GameType, IGameEngine>
-        {
-            { GameType.Mafia, new MafiaEngine() },
-            { GameType.TruthOrDare, new TruthOrDareEngine() }
-        };
     }
 
-    private Guid GetUserId() => Guid.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-
-    /// <summary>
-    /// Create a new game session in a venue
-    /// </summary>
-    public async Task CreateGame(Guid venueId, string gameType, int minPlayers, int maxPlayers)
+    public async Task CreateGame(string venueId, string gameType, int maxPlayers, object? settings)
     {
-        var userId = GetUserId();
-        if (!Enum.TryParse<GameType>(gameType, true, out var type))
-        {
-            await Clients.Caller.SendAsync("error", "Invalid game type");
-            return;
-        }
+        var userId = Guid.Parse(GetUserId());
+        var type = Enum.Parse<GameType>(gameType, true);
+
+        var (min, max) = GameStateMachine.GetPlayerLimits(type);
+        if (maxPlayers < min || maxPlayers > max) maxPlayers = max;
 
         var session = new GameSession
         {
-            VenueId = venueId,
-            HostId = userId,
+            VenueId = Guid.Parse(venueId),
             GameType = type,
-            MinPlayers = Math.Max(minPlayers, 3),
-            MaxPlayers = Math.Min(maxPlayers, 20),
-            Players = new List<GamePlayer>
-            {
-                new() { UserId = userId, Status = GamePlayerStatus.Ready }
-            }
+            HostUserId = userId,
+            MinPlayers = min,
+            MaxPlayers = maxPlayers,
         };
+        session.Players.Add(new GamePlayer { SessionId = session.Id, UserId = userId });
 
-        _context.GameSessions.Add(session);
-        await _context.SaveChangesAsync();
+        _db.GameSessions.Add(session);
+        await _db.SaveChangesAsync();
 
-        var groupName = $"game_{session.Id}";
-        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"game_{session.Id}");
 
-        await Clients.Group($"venue_{venueId}").SendAsync("gameCreated", new
-        {
-            sessionId = session.Id,
-            gameType,
-            hostId = userId,
-            minPlayers = session.MinPlayers,
-            maxPlayers = session.MaxPlayers
-        });
-
-        _logger.LogInformation("Game {GameType} created by {UserId} in venue {VenueId}", gameType, userId, venueId);
+        var dto = MapSessionDto(session);
+        await Clients.Group($"venue_{venueId}").SendAsync("gameCreated", dto);
+        _logger.LogInformation("Game {GameId} ({Type}) created by {UserId}", session.Id, type, userId);
     }
 
-    /// <summary>
-    /// Join an existing game session
-    /// </summary>
-    public async Task JoinGame(Guid sessionId)
+    public async Task JoinGame(string sessionId)
     {
-        var userId = GetUserId();
-        var session = await _context.GameSessions
-            .Include(s => s.Players)
-            .FirstOrDefaultAsync(s => s.Id == sessionId && s.Status == GameSessionStatus.Lobby);
-
-        if (session is null)
-        {
-            await Clients.Caller.SendAsync("error", "Game not found or already started");
-            return;
-        }
+        var userId = Guid.Parse(GetUserId());
+        var session = await GetSessionWithPlayers(Guid.Parse(sessionId));
+        if (session is null) return;
 
         if (session.Players.Count >= session.MaxPlayers)
         {
-            await Clients.Caller.SendAsync("error", "Game is full");
+            await Clients.Caller.SendAsync("error", new { code = "GAME_FULL", message = "Oyun doludur" });
             return;
         }
 
-        if (session.Players.Any(p => p.UserId == userId))
-        {
-            await Clients.Caller.SendAsync("error", "Already in this game");
-            return;
-        }
+        if (session.Players.Any(p => p.UserId == userId)) return;
 
-        session.Players.Add(new GamePlayer { UserId = userId, Status = GamePlayerStatus.Ready });
-        await _context.SaveChangesAsync();
+        session.Players.Add(new GamePlayer { SessionId = session.Id, UserId = userId });
+        await _db.SaveChangesAsync();
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"game_{sessionId}");
 
-        var groupName = $"game_{sessionId}";
-        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-
-        await Clients.Group(groupName).SendAsync("playerJoined", new
-        {
-            userId,
-            playerCount = session.Players.Count
-        });
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var playerDto = new GamePlayerDto(userId, user?.DisplayName ?? "Guest", user?.AvatarUrl, 0, true, true);
+        await Clients.Group($"game_{sessionId}").SendAsync("playerJoined", sessionId, playerDto);
     }
 
-    /// <summary>
-    /// Start the game (host only)
-    /// </summary>
-    public async Task StartGame(Guid sessionId)
+    public async Task StartGame(string sessionId)
     {
-        var userId = GetUserId();
-        var session = await _context.GameSessions
-            .Include(s => s.Players)
-            .FirstOrDefaultAsync(s => s.Id == sessionId);
+        var userId = Guid.Parse(GetUserId());
+        var session = await GetSessionWithPlayers(Guid.Parse(sessionId));
+        if (session is null) return;
 
-        if (session is null || session.HostId != userId || session.Status != GameSessionStatus.Lobby)
+        if (session.HostUserId != userId)
         {
-            await Clients.Caller.SendAsync("error", "Cannot start game");
+            await Clients.Caller.SendAsync("error", new { code = "NOT_HOST", message = "Yalnız host oyunu başlada bilər" });
             return;
         }
 
         if (session.Players.Count < session.MinPlayers)
         {
-            await Clients.Caller.SendAsync("error", $"Need at least {session.MinPlayers} players");
+            await Clients.Caller.SendAsync("error", new { code = "NOT_ENOUGH_PLAYERS", message = $"Minimum {session.MinPlayers} oyunçu lazımdır" });
             return;
         }
 
-        if (!_engines.TryGetValue(session.GameType, out var engine))
-        {
-            await Clients.Caller.SendAsync("error", "Game engine not available");
-            return;
-        }
-
-        var playerIds = session.Players.Select(p => p.UserId).ToList();
-        var initialState = engine.InitializeState(playerIds);
-
-        session.Status = GameSessionStatus.InProgress;
+        session.Status = GameStatus.InProgress;
         session.StartedAt = DateTime.UtcNow;
-        session.GameState = JsonSerializer.Serialize(initialState);
-        session.Players.ForEach(p => p.Status = GamePlayerStatus.Playing);
-        await _context.SaveChangesAsync();
 
-        var groupName = $"game_{sessionId}";
+        // Initialize game state based on type
+        GameStateMachine.InitializeGame(session);
+        await _db.SaveChangesAsync();
 
-        // Send fog-of-war state to each player
+        // Send personalized state to each player (fog of war)
         foreach (var player in session.Players)
         {
-            var playerState = GetPlayerVisibleState(session.GameType, initialState, player.UserId);
-            await Clients.User(player.UserId.ToString()).SendAsync("gameStarted", playerState);
+            var state = GameStateMachine.GetPlayerState(session, player.UserId);
+            // In a real implementation, we'd need to map ConnectionId per player
+            await Clients.Group($"game_{sessionId}").SendAsync("gameStarted", sessionId, state);
         }
 
-        _logger.LogInformation("Game {SessionId} started with {PlayerCount} players", sessionId, playerIds.Count);
+        _logger.LogInformation("Game {GameId} started with {PlayerCount} players", session.Id, session.Players.Count);
     }
 
-    /// <summary>
-    /// Perform a game action
-    /// </summary>
-    public async Task GameAction(Guid sessionId, string action, string? data)
+    public async Task SubmitAction(string sessionId, GameActionDto action)
+    {
+        var userId = Guid.Parse(GetUserId());
+        var session = await GetSessionWithPlayers(Guid.Parse(sessionId));
+        if (session is null || session.Status != GameStatus.InProgress) return;
+
+        var result = GameStateMachine.ProcessAction(session, userId, action);
+        await _db.SaveChangesAsync();
+
+        await Clients.Group($"game_{sessionId}").SendAsync("stateUpdated", sessionId, result);
+
+        if (session.Status == GameStatus.Completed)
+        {
+            var gameResult = GameStateMachine.GetResult(session);
+            await Clients.Group($"game_{sessionId}").SendAsync("gameEnded", sessionId, gameResult);
+        }
+    }
+
+    public async Task LeaveGame(string sessionId)
     {
         var userId = GetUserId();
-        var session = await _context.GameSessions
-            .Include(s => s.Players)
-            .FirstOrDefaultAsync(s => s.Id == sessionId && s.Status == GameSessionStatus.InProgress);
-
-        if (session is null)
-        {
-            await Clients.Caller.SendAsync("error", "Game not found or not in progress");
-            return;
-        }
-
-        if (!_engines.TryGetValue(session.GameType, out var engine))
-            return;
-
-        var state = DeserializeState(session.GameType, session.GameState!);
-        var newState = engine.ProcessAction(state, userId, action, data);
-
-        session.GameState = JsonSerializer.Serialize(newState);
-
-        if (engine.IsGameOver(newState))
-        {
-            session.Status = GameSessionStatus.Completed;
-            session.EndedAt = DateTime.UtcNow;
-            var scores = engine.GetScores(newState);
-            foreach (var player in session.Players)
-            {
-                player.Score = scores.GetValueOrDefault(player.UserId);
-                player.Status = GamePlayerStatus.Waiting;
-            }
-
-            await _context.SaveChangesAsync();
-
-            var groupName = $"game_{sessionId}";
-            await Clients.Group(groupName).SendAsync("gameEnded", new
-            {
-                scores = scores.Select(s => new { userId = s.Key, score = s.Value })
-            });
-            return;
-        }
-
-        await _context.SaveChangesAsync();
-
-        // Send updated state to each player (fog of war)
-        foreach (var player in session.Players.Where(p => p.Status == GamePlayerStatus.Playing))
-        {
-            var playerState = GetPlayerVisibleState(session.GameType, newState, player.UserId);
-            await Clients.User(player.UserId.ToString()).SendAsync("gameStateUpdated", playerState);
-        }
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"game_{sessionId}");
+        await Clients.Group($"game_{sessionId}").SendAsync("playerLeft", sessionId, userId);
     }
 
-    private static object GetPlayerVisibleState(GameType gameType, object state, Guid playerId)
-    {
-        if (gameType == GameType.Mafia && state is MafiaState mafiaState)
-        {
-            return new
-            {
-                phase = mafiaState.Phase.ToString(),
-                round = mafiaState.Round,
-                alivePlayers = mafiaState.AlivePlayers,
-                eliminatedPlayers = mafiaState.EliminatedPlayers,
-                myRole = mafiaState.Roles.GetValueOrDefault(playerId).ToString(),
-                voteCount = mafiaState.Votes.Count,
-                totalAlive = mafiaState.AlivePlayers.Count
-            };
-        }
+    private async Task<GameSession?> GetSessionWithPlayers(Guid id)
+        => await _db.GameSessions.Include(s => s.Players).FirstOrDefaultAsync(s => s.Id == id);
 
-        return state;
-    }
+    private string GetUserId() => Context.User?.FindFirst("sub")?.Value
+        ?? throw new HubException("User not authenticated");
 
-    private static object DeserializeState(GameType gameType, string json)
-    {
-        return gameType switch
-        {
-            GameType.Mafia => JsonSerializer.Deserialize<MafiaState>(json)!,
-            GameType.TruthOrDare => JsonSerializer.Deserialize<TruthOrDareState>(json)!,
-            _ => throw new NotSupportedException($"Game type {gameType} not supported")
-        };
-    }
+    private static GameSessionDto MapSessionDto(GameSession s) => new(
+        s.Id, s.GameType.ToString(), s.HostUserId, s.MaxPlayers, s.MinPlayers, s.Status.ToString(),
+        s.Players.Select(p => new GamePlayerDto(p.UserId, "", null, p.Score, p.IsAlive, p.IsConnected)).ToList()
+    );
 }

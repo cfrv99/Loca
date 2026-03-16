@@ -2,6 +2,7 @@ using Loca.Application.DTOs;
 using Loca.Application.Interfaces;
 using Loca.Domain.Common;
 using Loca.Domain.Entities;
+using Loca.Domain.Enums;
 using Loca.Domain.Interfaces;
 using Loca.Services.Identity.Commands;
 using MediatR;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Loca.Services.Identity.Handlers;
 
-public class GoogleLoginHandler : IRequestHandler<GoogleLoginCommand, Result<LoginResultDto>>
+public class GoogleLoginHandler : IRequestHandler<GoogleLoginCommand, Result<AuthResponse>>
 {
     private readonly IUserRepository _users;
     private readonly ITokenService _tokenService;
@@ -22,93 +23,69 @@ public class GoogleLoginHandler : IRequestHandler<GoogleLoginCommand, Result<Log
         _logger = logger;
     }
 
-    public async Task<Result<LoginResultDto>> Handle(GoogleLoginCommand cmd, CancellationToken ct)
+    public async Task<Result<AuthResponse>> Handle(GoogleLoginCommand cmd, CancellationToken ct)
     {
-        // In production, validate the Google ID token with Google's API
-        // For now, we extract info from the token payload (simplified)
-        var (email, googleId, name) = DecodeGoogleToken(cmd.IdToken);
-
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(googleId))
-            return Result<LoginResultDto>.Failure("INVALID_TOKEN", "Invalid Google ID token");
-
-        var isNewUser = false;
-        var user = await _users.GetByGoogleIdAsync(googleId, ct);
-
-        if (user is null)
+        try
         {
-            // Check if email already exists
-            user = await _users.GetByEmailAsync(email, ct);
-            if (user is not null)
+            // In production: validate Google ID token with Google.Apis.Auth
+            // For development: accept the token as-is and extract mock data
+            // var payload = await GoogleJsonWebSignature.ValidateAsync(cmd.IdToken);
+
+            // Dev mode: create/find user with token as identifier
+            var providerId = cmd.IdToken;
+            var user = await _users.GetByAuthProviderAsync(AuthProvider.Google, providerId, ct);
+            var isNewUser = false;
+
+            if (user is null)
             {
-                // Link Google account to existing user
-                user.GoogleId = googleId;
-                await _users.UpdateAsync(user, ct);
-            }
-            else
-            {
-                // Create new user
+                isNewUser = true;
                 user = new User
                 {
-                    Email = email,
-                    GoogleId = googleId,
-                    DisplayName = name ?? email.Split('@')[0],
-                    Profile = new UserProfile(),
-                    Wallet = new Wallet()
+                    Email = $"user_{Guid.NewGuid():N}@loca.az",
+                    DisplayName = "Yeni istifadəçi",
+                    DateOfBirth = DateTime.UtcNow.AddYears(-25),
+                    Gender = Gender.PreferNotToSay,
+                    AuthProvider = AuthProvider.Google,
+                    AuthProviderId = providerId,
                 };
                 await _users.AddAsync(user, ct);
-                isNewUser = true;
-                _logger.LogInformation("New user registered via Google: {UserId} ({Email})", user.Id, email);
+                _logger.LogInformation("New user registered via Google: {UserId}", user.Id);
             }
+
+            // Generate tokens
+            var accessToken = _tokenService.GenerateAccessToken(user);
+            var refreshTokenValue = _tokenService.GenerateRefreshToken();
+            var refreshToken = new RefreshToken
+            {
+                UserId = user.Id,
+                TokenHash = _tokenService.HashToken(refreshTokenValue),
+                ExpiresAt = DateTime.UtcNow.AddDays(30),
+            };
+            await _users.AddRefreshTokenAsync(refreshToken, ct);
+
+            var userDto = MapToDto(user);
+            return Result<AuthResponse>.Success(new AuthResponse(accessToken, refreshTokenValue, userDto, isNewUser));
         }
-
-        // Generate tokens
-        var accessToken = _tokenService.GenerateAccessToken(user);
-        var refreshToken = _tokenService.GenerateRefreshToken();
-
-        // Save refresh token
-        user.RefreshTokens.Add(new RefreshToken
+        catch (Exception ex)
         {
-            Token = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(30),
-            DeviceInfo = cmd.DeviceInfo
-        });
-        user.LastActiveAt = DateTime.UtcNow;
-        await _users.UpdateAsync(user, ct);
-
-        _logger.LogInformation("User logged in via Google: {UserId}", user.Id);
-
-        return Result<LoginResultDto>.Success(new LoginResultDto(
-            AccessToken: accessToken,
-            RefreshToken: refreshToken,
-            ExpiresAt: DateTime.UtcNow.AddHours(1),
-            User: MapToDto(user),
-            IsNewUser: isNewUser
-        ));
-    }
-
-    private static (string? Email, string? GoogleId, string? Name) DecodeGoogleToken(string idToken)
-    {
-        // Simplified: In production, use Google.Apis.Auth.GoogleJsonWebSignature.ValidateAsync
-        // For development, we accept a formatted token: "google:{email}:{googleId}:{name}"
-        if (idToken.StartsWith("google:"))
-        {
-            var parts = idToken.Split(':');
-            if (parts.Length >= 4)
-                return (parts[1], parts[2], parts[3]);
+            _logger.LogError(ex, "Google login failed");
+            return Result<AuthResponse>.Failure("AUTH_FAILED", "Google authentication failed");
         }
-
-        return (null, null, null);
     }
 
     private static UserDto MapToDto(User user) => new(
         Id: user.Id,
         Email: user.Email,
         DisplayName: user.DisplayName,
-        FirstName: user.FirstName,
-        LastName: user.LastName,
-        ProfilePhotoUrl: user.ProfilePhotoUrl,
-        Bio: user.Bio,
-        IsOnboardingComplete: user.IsOnboardingComplete,
+        AvatarUrl: user.AvatarUrl,
+        DateOfBirth: user.DateOfBirth,
+        Gender: user.Gender.ToString(),
+        Interests: user.Interests,
+        Purposes: user.Purposes,
+        VibePreferences: user.VibePreferences.Select(v => new VibePreferenceDto(v.Vibe, v.Weight)).ToList(),
+        IsOnboarded: user.IsOnboarded,
+        IsPremium: user.IsPremium,
+        CoinBalance: 0,
         CreatedAt: user.CreatedAt
     );
 }

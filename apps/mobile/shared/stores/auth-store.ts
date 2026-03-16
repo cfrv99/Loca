@@ -1,54 +1,38 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-
-interface User {
-  id: string;
-  email: string;
-  displayName: string;
-  profilePhotoUrl?: string;
-  isOnboardingComplete: boolean;
-}
+import type { UserDto } from '../types';
 
 interface AuthState {
-  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  user: UserDto | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  setUser: (user: User | null) => void;
-  setTokens: (accessToken: string, refreshToken: string) => Promise<void>;
-  clearAuth: () => Promise<void>;
-  loadStoredAuth: () => Promise<void>;
+
+  setTokens: (access: string, refresh: string) => void;
+  setUser: (user: UserDto) => void;
+  logout: () => void;
+  setLoading: (loading: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
+  accessToken: null,
+  refreshToken: null,
   user: null,
   isAuthenticated: false,
   isLoading: true,
 
-  setUser: (user) =>
-    set({ user, isAuthenticated: user !== null }),
+  setTokens: (access, refresh) =>
+    set({ accessToken: access, refreshToken: refresh, isAuthenticated: true }),
 
-  setTokens: async (accessToken, refreshToken) => {
-    await SecureStore.setItemAsync('access_token', accessToken);
-    await SecureStore.setItemAsync('refresh_token', refreshToken);
-  },
+  setUser: (user) => set({ user }),
 
-  clearAuth: async () => {
-    await SecureStore.deleteItemAsync('access_token');
-    await SecureStore.deleteItemAsync('refresh_token');
-    set({ user: null, isAuthenticated: false });
-  },
+  logout: () =>
+    set({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      isAuthenticated: false,
+    }),
 
-  loadStoredAuth: async () => {
-    try {
-      const token = await SecureStore.getItemAsync('access_token');
-      if (token) {
-        // Token exists — we'll validate it via API call in the app
-        set({ isLoading: false });
-      } else {
-        set({ isLoading: false, isAuthenticated: false });
-      }
-    } catch {
-      set({ isLoading: false, isAuthenticated: false });
-    }
-  },
+  setLoading: (loading) => set({ isLoading: loading }),
 }));

@@ -1,52 +1,53 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-export default function TabsLayout() {
+export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
         tabBarActiveTintColor: '#3B82F6',
         tabBarInactiveTintColor: '#6B7280',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E5E7EB',
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 64,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
-        name="discover"
+        name="discover/index"
         options={{
-          title: 'Kesf et',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>K</Text>,
+          title: 'Kəşf et',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="compass" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="hub"
+        name="hub/index"
         options={{
           title: 'Hub',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>H</Text>,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="comments" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="matches"
+        name="matches/index"
         options={{
-          title: 'Maclar',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>M</Text>,
+          title: 'Matçlar',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="heart" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>P</Text>,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="user" size={24} color={color} />
+          ),
         }}
       />
     </Tabs>

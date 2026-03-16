@@ -14,13 +14,3 @@ public class CheckInValidator : AbstractValidator<CheckInCommand>
         RuleFor(x => x.UserId).NotEmpty();
     }
 }
-
-public class GetNearbyVenuesValidator : AbstractValidator<Queries.GetNearbyVenuesQuery>
-{
-    public GetNearbyVenuesValidator()
-    {
-        RuleFor(x => x.Lat).InclusiveBetween(-90, 90);
-        RuleFor(x => x.Lng).InclusiveBetween(-180, 180);
-        RuleFor(x => x.PageSize).InclusiveBetween(1, 50);
-    }
-}

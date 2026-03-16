@@ -5,8 +5,11 @@ public enum TransactionType
     Purchase,
     GiftSent,
     GiftReceived,
-    Reward,
-    Refund
+    GameReward,
+    SkipPenalty,
+    VibeBomb,
+    ChainPartyReward,
+    Bonus
 }
 
 public enum GiftTier
@@ -14,13 +17,11 @@ public enum GiftTier
     Basic,
     Premium,
     Luxury,
-    Venue
+    VenueSpecific
 }
 
-public enum CoinPackageType
+public enum GiftContext
 {
-    Starter,
-    Popular,
-    Best,
-    Mega
+    PublicChat,
+    PrivateChat
 }

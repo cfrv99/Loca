@@ -1,9 +1,12 @@
 namespace Loca.Application.DTOs;
 
-public record LoginResultDto(
+public record GoogleLoginRequest(string IdToken);
+public record AppleLoginRequest(string IdentityToken, string AuthorizationCode, string? FullName);
+public record RefreshTokenRequest(string RefreshToken);
+
+public record AuthResponse(
     string AccessToken,
     string RefreshToken,
-    DateTime ExpiresAt,
     UserDto User,
     bool IsNewUser
 );
@@ -12,41 +15,48 @@ public record UserDto(
     Guid Id,
     string Email,
     string DisplayName,
-    string? FirstName,
-    string? LastName,
-    string? ProfilePhotoUrl,
-    string? Bio,
-    bool IsOnboardingComplete,
+    string? AvatarUrl,
+    DateTime DateOfBirth,
+    string Gender,
+    List<string> Interests,
+    List<string> Purposes,
+    List<VibePreferenceDto> VibePreferences,
+    bool IsOnboarded,
+    bool IsPremium,
+    int CoinBalance,
     DateTime CreatedAt
 );
 
-public record UserProfileDto(
+public record VibePreferenceDto(string Vibe, decimal Weight);
+
+public record PublicUserDto(
     Guid Id,
     string DisplayName,
-    string? ProfilePhotoUrl,
-    string? Bio,
+    string? AvatarUrl,
+    int Age,
+    string Gender,
     List<string> Interests,
-    int TotalCheckIns,
-    int TotalGamesPlayed,
-    int TotalGiftsReceived,
-    int TotalMatchesMade
+    List<string> Purposes,
+    List<PastVenueDto> PastVenues,
+    int MemoriesCount,
+    string? GiftBadge
 );
 
-public record UpdateProfileDto(
+public record PastVenueDto(Guid VenueId, string VenueName, DateTime LastVisit);
+
+public record OnboardingRequest(
+    List<string> Interests,
+    List<string> Purposes,
+    List<VibePreferenceDto> VibePreferences,
+    PrivacySettingsDto PrivacySettings
+);
+
+public record PrivacySettingsDto(bool DefaultAnonymous, bool PushEnabled);
+
+public record UpdateProfileRequest(
     string? DisplayName,
-    string? FirstName,
-    string? LastName,
     string? Bio,
-    DateTime? DateOfBirth,
-    string? Gender,
     List<string>? Interests,
     List<string>? Purposes,
-    string? VibePreference,
-    string? PrivacyLevel
-);
-
-public record RefreshTokenDto(
-    string AccessToken,
-    string RefreshToken,
-    DateTime ExpiresAt
+    List<VibePreferenceDto>? VibePreferences
 );

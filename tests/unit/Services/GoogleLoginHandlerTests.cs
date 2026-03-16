@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Loca.Application.Interfaces;
 using Loca.Domain.Entities;
+using Loca.Domain.Enums;
 using Loca.Domain.Interfaces;
 using Loca.Services.Identity.Commands;
 using Loca.Services.Identity.Handlers;
@@ -11,73 +12,58 @@ namespace Loca.Tests.Unit.Services;
 
 public class GoogleLoginHandlerTests
 {
-    private readonly IUserRepository _userRepo;
-    private readonly ITokenService _tokenService;
-    private readonly ILogger<GoogleLoginHandler> _logger;
+    private readonly IUserRepository _users = Substitute.For<IUserRepository>();
+    private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
+    private readonly ILogger<GoogleLoginHandler> _logger = Substitute.For<ILogger<GoogleLoginHandler>>();
     private readonly GoogleLoginHandler _handler;
 
     public GoogleLoginHandlerTests()
     {
-        _userRepo = Substitute.For<IUserRepository>();
-        _tokenService = Substitute.For<ITokenService>();
-        _logger = Substitute.For<ILogger<GoogleLoginHandler>>();
-        _handler = new GoogleLoginHandler(_userRepo, _tokenService, _logger);
+        _handler = new GoogleLoginHandler(_users, _tokenService, _logger);
     }
 
     [Fact]
-    public async Task Should_CreateNewUser_When_GoogleIdNotFound()
+    public async Task Should_CreateNewUser_When_FirstLogin()
     {
-        var cmd = new GoogleLoginCommand("google:test@example.com:google123:Test User", "iPhone 15");
-        _userRepo.GetByGoogleIdAsync("google123", Arg.Any<CancellationToken>()).Returns((User?)null);
-        _userRepo.GetByEmailAsync("test@example.com", Arg.Any<CancellationToken>()).Returns((User?)null);
-        _tokenService.GenerateAccessToken(Arg.Any<User>()).Returns("access-token-123");
-        _tokenService.GenerateRefreshToken().Returns("refresh-token-123");
+        _users.GetByAuthProviderAsync(AuthProvider.Google, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((User?)null);
+        _tokenService.GenerateAccessToken(Arg.Any<User>()).Returns("access-token");
+        _tokenService.GenerateRefreshToken().Returns("refresh-token");
+        _tokenService.HashToken(Arg.Any<string>()).Returns("hashed-token");
 
+        var cmd = new GoogleLoginCommand("test-google-token");
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.IsNewUser.Should().BeTrue();
-        result.Value.AccessToken.Should().Be("access-token-123");
-        result.Value.RefreshToken.Should().Be("refresh-token-123");
-        result.Value.User.Email.Should().Be("test@example.com");
-
-        await _userRepo.Received(1).AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        result.Value!.AccessToken.Should().Be("access-token");
+        result.Value!.RefreshToken.Should().Be("refresh-token");
     }
 
     [Fact]
-    public async Task Should_ReturnExistingUser_When_GoogleIdFound()
+    public async Task Should_ReturnExistingUser_When_AlreadyRegistered()
     {
         var existingUser = new User
         {
-            Id = Guid.NewGuid(),
-            Email = "test@example.com",
-            GoogleId = "google123",
-            DisplayName = "Existing User",
-            RefreshTokens = new List<RefreshToken>()
+            Email = "test@loca.az",
+            DisplayName = "Test User",
+            DateOfBirth = DateTime.UtcNow.AddYears(-25),
+            Gender = Gender.Male,
+            AuthProvider = AuthProvider.Google,
+            AuthProviderId = "test-google-token"
         };
 
-        var cmd = new GoogleLoginCommand("google:test@example.com:google123:Test User", "iPhone 15");
-        _userRepo.GetByGoogleIdAsync("google123", Arg.Any<CancellationToken>()).Returns(existingUser);
-        _tokenService.GenerateAccessToken(Arg.Any<User>()).Returns("access-token-123");
-        _tokenService.GenerateRefreshToken().Returns("refresh-token-123");
+        _users.GetByAuthProviderAsync(AuthProvider.Google, "test-google-token", Arg.Any<CancellationToken>())
+            .Returns(existingUser);
+        _tokenService.GenerateAccessToken(Arg.Any<User>()).Returns("access-token");
+        _tokenService.GenerateRefreshToken().Returns("refresh-token");
+        _tokenService.HashToken(Arg.Any<string>()).Returns("hashed-token");
 
+        var cmd = new GoogleLoginCommand("test-google-token");
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.IsNewUser.Should().BeFalse();
-        result.Value.User.Id.Should().Be(existingUser.Id);
-
-        await _userRepo.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task Should_ReturnError_When_InvalidGoogleToken()
-    {
-        var cmd = new GoogleLoginCommand("invalid-token", "iPhone 15");
-
-        var result = await _handler.Handle(cmd, CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("INVALID_TOKEN");
+        result.Value!.User.DisplayName.Should().Be("Test User");
     }
 }

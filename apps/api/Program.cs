@@ -1,142 +1,95 @@
-using System.Text;
-using FluentValidation;
-using Loca.Application.Behaviors;
 using Loca.Infrastructure.Configuration;
 using Loca.Infrastructure.Persistence;
-using Loca.Services.Game.Hubs;
 using Loca.Services.Social.Hubs;
-using MediatR;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Loca.Services.Game.Hubs;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── MediatR + FluentValidation ──
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(
-    typeof(Loca.Services.Identity.Commands.GoogleLoginCommand).Assembly,
-    typeof(Loca.Services.Venue.Commands.CheckInCommand).Assembly,
-    typeof(Loca.Services.Social.Hubs.VenueChatHub).Assembly,
-    typeof(Loca.Services.Game.Hubs.GameHub).Assembly
-));
-builder.Services.AddValidatorsFromAssemblies(new[]
-{
-    typeof(Loca.Services.Identity.Validators.GoogleLoginValidator).Assembly,
-    typeof(Loca.Services.Venue.Validators.CheckInValidator).Assembly
-});
-builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+// Add services
+builder.Services.AddLocaInfrastructure(builder.Configuration);
 
-// ── Infrastructure (EF Core + Redis + Repositories) ──
-builder.Services.AddInfrastructure(builder.Configuration);
+// SignalR
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379");
 
-// ── Authentication (JWT) ──
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "super-secret-key-for-development-only-min-32-chars";
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "loca-api",
-            ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "loca-mobile",
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
-
-        // SignalR token from query string
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) &&
-                    (path.StartsWithSegments("/hubs/chat") || path.StartsWithSegments("/hubs/game")))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
-            }
-        };
-    });
-builder.Services.AddAuthorization();
-
-// ── SignalR ──
-builder.Services.AddSignalR(options =>
-{
-    options.MaximumReceiveMessageSize = 1024; // 1KB max per convention
-    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-});
-
-// ── Controllers + Swagger ──
+// Controllers
 builder.Services.AddControllers();
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    c.SwaggerDoc("v1", new() { Title = "Loca API", Version = "v1", Description = "Location-Based Social Discovery Platform" });
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
-        Title = "Loca API",
-        Version = "v1",
-        Description = "Location-Based Social Discovery Platform API"
-    });
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme",
+        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token.",
         Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecurityScheme
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
     });
 });
 
-// ── CORS ──
+// CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:8081", "http://localhost:3000", "https://admin.loca.az")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
 });
+
+// Health checks
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// ── Middleware Pipeline ──
+// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<VenueChatHub>("/hubs/chat");
+app.MapHub<VenueChatHub>("/hubs/venue-chat");
 app.MapHub<GameHub>("/hubs/game");
+app.MapHealthChecks("/health");
 
-// ── Apply Migrations on startup (Development only) ──
+// Auto-migrate in development
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LocaDbContext>();
-    await db.Database.MigrateAsync();
+    try
+    {
+        await db.Database.MigrateAsync();
+    }
+    catch
+    {
+        // DB might not be available yet
+    }
 }
 
 app.Run();
 
-// Make Program class accessible for integration tests
+// Make partial for integration testing
 public partial class Program { }

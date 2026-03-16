@@ -1,0 +1,70 @@
+{
+  "model": "claude-opus-4-6",
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Agent(*)",
+      "Skill(*)",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(sudo rm -rf *)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "DOTNET_ENVIRONMENT": "Development",
+    "NODE_ENV": "development"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "BEFORE STOPPING — verify project health:\n1. Backend: run `dotnet build` — if fails, fix errors.\n2. Mobile: run `cd apps/mobile && npx tsc --noEmit` — if fails, fix.\n3. Tests: run `dotnet test --verbosity minimal` and `cd apps/mobile && npx jest --silent` — if any fail, fix.\n4. Check new files follow naming conventions.\n5. Verify every feature has at least 1 test.\n6. Update docs/taskboard/BOARD.md with current status.\n7. Git commit any uncommitted work with proper format.\nFix ALL failures before stopping. Respond with ok only when everything passes.",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/security-check.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write:*.cs|Edit:*.cs",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cd $CLAUDE_PROJECT_DIR && dotnet build --nologo --verbosity quiet 2>&1 | tail -3; exit ${PIPESTATUS[0]}'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write:*.ts|Write:*.tsx|Edit:*.ts|Edit:*.tsx",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cd $CLAUDE_PROJECT_DIR/apps/mobile && npx tsc --noEmit --pretty 2>&1 | tail -5; exit ${PIPESTATUS[0]}'"
+          }
+        ]
+      }
+    ]
+  }
+}

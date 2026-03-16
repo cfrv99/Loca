@@ -1,17 +1,13 @@
-using Loca.Domain.Common;
-
 namespace Loca.Domain.Entities;
 
-public class UserProfile : BaseEntity
+public class UserInterest
 {
     public Guid UserId { get; set; }
-    public string? InstagramHandle { get; set; }
-    public string? SpotifyId { get; set; }
-    public int TotalCheckIns { get; set; }
-    public int TotalGamesPlayed { get; set; }
-    public int TotalGiftsReceived { get; set; }
-    public int TotalMatchesMade { get; set; }
+    public string Interest { get; set; } = string.Empty;
+}
 
-    // Navigation
-    public User User { get; set; } = null!;
+public class UserPurpose
+{
+    public Guid UserId { get; set; }
+    public string Purpose { get; set; } = string.Empty;
 }

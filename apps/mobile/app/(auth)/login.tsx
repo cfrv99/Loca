@@ -1,38 +1,26 @@
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '@/shared/stores/auth-store';
-import { api } from '@/shared/services/api-client';
-import type { ApiResponse, LoginResult } from '@/shared/types';
+import { useAuthStore } from '../../shared/stores/auth-store';
+import { api } from '../../shared/services/api-client';
+import type { ApiResponse, AuthResponse } from '../../shared/types';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { setUser, setTokens } = useAuthStore();
+  const { setTokens, setUser } = useAuthStore();
 
   const handleGoogleLogin = async () => {
     try {
-      // In production, use expo-auth-session for Google OAuth
-      // For dev, we use the simplified token format
-      const res = await api.post<ApiResponse<LoginResult>>('/auth/google', {
-        idToken: 'google:dev@loca.az:google-dev-123:Dev User',
-        deviceInfo: 'Expo Dev',
+      // In production: use expo-auth-session for Google OAuth
+      // For dev: mock login
+      const res = await api.post<ApiResponse<AuthResponse>>('/auth/google', {
+        idToken: 'dev-mock-token',
       });
 
       if (res.data.success && res.data.data) {
         const { accessToken, refreshToken, user } = res.data.data;
-        await setTokens(accessToken, refreshToken);
-        setUser({
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          profilePhotoUrl: user.profilePhotoUrl,
-          isOnboardingComplete: user.isOnboardingComplete,
-        });
-
-        if (user.isOnboardingComplete) {
-          router.replace('/(tabs)/discover');
-        } else {
-          router.replace('/(auth)/onboarding');
-        }
+        setTokens(accessToken, refreshToken);
+        setUser(user);
+        router.replace('/(tabs)/discover');
       }
     } catch (error) {
       if (__DEV__) console.error('Login failed:', error);
@@ -40,43 +28,39 @@ export default function LoginScreen() {
   };
 
   return (
-    <View className="flex-1 bg-primary items-center justify-center px-8">
+    <View className="flex-1 items-center justify-center bg-primary px-8">
       {/* Logo */}
-      <View className="mb-12 items-center">
-        <Text className="text-5xl font-bold text-white mb-2">LOCA</Text>
-        <Text className="text-lg text-gray-300">
-          Discover. Connect. Play.
+      <Text className="text-6xl font-bold text-white mb-2">Loca</Text>
+      <Text className="text-lg text-gray-300 mb-12 text-center">
+        Məkanları kəşf et, insanlarla tanış ol
+      </Text>
+
+      {/* Google Login */}
+      <Pressable
+        onPress={handleGoogleLogin}
+        className="w-full bg-white rounded-xl py-4 px-6 flex-row items-center justify-center mb-4"
+        accessibilityRole="button"
+        accessibilityLabel="Google ilə daxil ol"
+      >
+        <Text className="text-primary font-semibold text-base">
+          Google ilə daxil ol
         </Text>
-      </View>
+      </Pressable>
 
-      {/* Login Buttons */}
-      <View className="w-full gap-4">
-        <Pressable
-          onPress={handleGoogleLogin}
-          className="bg-white rounded-xl py-4 px-6 flex-row items-center justify-center active:opacity-80"
-          accessibilityRole="button"
-          accessibilityLabel="Google ile daxil ol"
-        >
-          <Text className="text-primary font-semibold text-base ml-3">
-            Google ile daxil ol
-          </Text>
-        </Pressable>
+      {/* Apple Login */}
+      <Pressable
+        className="w-full bg-black rounded-xl py-4 px-6 flex-row items-center justify-center mb-8"
+        accessibilityRole="button"
+        accessibilityLabel="Apple ilə daxil ol"
+      >
+        <Text className="text-white font-semibold text-base">
+          Apple ilə daxil ol
+        </Text>
+      </Pressable>
 
-        <Pressable
-          className="bg-black rounded-xl py-4 px-6 flex-row items-center justify-center active:opacity-80"
-          accessibilityRole="button"
-          accessibilityLabel="Apple ile daxil ol"
-        >
-          <Text className="text-white font-semibold text-base ml-3">
-            Apple ile daxil ol
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Terms */}
-      <Text className="text-xs text-gray-400 text-center mt-8 px-4">
-        Daxil olmaqla Istifade Sertleri ve Mexfilik Siyasetimizi qebul
-        edirsiniz.
+      {/* Age notice */}
+      <Text className="text-xs text-gray-400 text-center">
+        Daxil olmaqla, 18 yaşdan yuxarı olduğunuzu və{'\n'}İstifadə Şərtlərini qəbul etdiyinizi təsdiqləyirsiniz.
       </Text>
     </View>
   );

@@ -1,6 +1,28 @@
-@Loca.API_HostAddress = http://localhost:5168
+@baseUrl = https://localhost:5001/api/v1
 
-GET {{Loca.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health Check
+GET https://localhost:5001/health
 
-###
+### Google Login
+POST {{baseUrl}}/auth/google
+Content-Type: application/json
+
+{
+  "idToken": "test-google-token-123"
+}
+
+### Get Nearby Venues
+GET {{baseUrl}}/venues/nearby?lat=40.4093&lng=49.8671&radius=5000
+Authorization: Bearer {{token}}
+
+### Check In
+POST {{baseUrl}}/venues/checkin
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "qrPayload": "123456",
+  "lat": 40.4093,
+  "lng": 49.8671,
+  "deviceFingerprint": "test-device-123"
+}

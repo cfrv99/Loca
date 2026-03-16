@@ -18,32 +18,16 @@ public class AuthController : ControllerBase
     public AuthController(IMediator mediator) => _mediator = mediator;
 
     /// <summary>
-    /// Login or register with Google OAuth
+    /// Login or register via Google OAuth
     /// </summary>
     [HttpPost("google")]
-    [ProducesResponseType(typeof(ApiResponse<LoginResultDto>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<LoginResultDto>), 400)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 200)]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginCommand cmd)
     {
         var result = await _mediator.Send(cmd);
         return result.Match<IActionResult>(
-            data => Ok(ApiResponse<LoginResultDto>.Ok(data)),
-            error => BadRequest(ApiResponse<LoginResultDto>.Fail(error.Code, error.Message))
-        );
-    }
-
-    /// <summary>
-    /// Login or register with Apple Sign-In
-    /// </summary>
-    [HttpPost("apple")]
-    [ProducesResponseType(typeof(ApiResponse<LoginResultDto>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<LoginResultDto>), 400)]
-    public async Task<IActionResult> AppleLogin([FromBody] AppleLoginCommand cmd)
-    {
-        var result = await _mediator.Send(cmd);
-        return result.Match<IActionResult>(
-            data => Ok(ApiResponse<LoginResultDto>.Ok(data)),
-            error => BadRequest(ApiResponse<LoginResultDto>.Fail(error.Code, error.Message))
+            data => Ok(ApiResponse<AuthResponse>.Ok(data)),
+            error => BadRequest(ApiResponse<AuthResponse>.Fail(error.Code, error.Message))
         );
     }
 
@@ -51,35 +35,23 @@ public class AuthController : ControllerBase
     /// Refresh access token
     /// </summary>
     [HttpPost("refresh")]
-    [ProducesResponseType(typeof(ApiResponse<RefreshTokenDto>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<RefreshTokenDto>), 401)]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenCommand cmd)
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 200)]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
     {
-        var result = await _mediator.Send(cmd);
-        return result.Match<IActionResult>(
-            data => Ok(ApiResponse<RefreshTokenDto>.Ok(data)),
-            error => Unauthorized(ApiResponse<RefreshTokenDto>.Fail(error.Code, error.Message))
-        );
+        // TODO: Implement refresh token command
+        return Ok(ApiResponse<AuthResponse>.Fail("NOT_IMPLEMENTED", "Refresh token not yet implemented"));
     }
-}
-
-[ApiController]
-[Route("api/v1/users")]
-[Authorize]
-public class UsersController : ControllerBase
-{
-    private readonly IMediator _mediator;
-
-    public UsersController(IMediator mediator) => _mediator = mediator;
 
     /// <summary>
-    /// Get current user's profile
+    /// Get current user profile
     /// </summary>
-    [HttpGet("me")]
+    [HttpGet("/api/v1/users/me")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), 200)]
-    public async Task<IActionResult> GetMyProfile()
+    public async Task<IActionResult> GetProfile()
     {
-        var result = await _mediator.Send(new GetMyProfileQuery(User.GetUserId()));
+        var userId = User.GetUserId();
+        var result = await _mediator.Send(new GetProfileQuery(userId));
         return result.Match<IActionResult>(
             data => Ok(ApiResponse<UserDto>.Ok(data)),
             error => NotFound(ApiResponse<UserDto>.Fail(error.Code, error.Message))
@@ -87,9 +59,10 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Update current user's profile
+    /// Update current user profile
     /// </summary>
-    [HttpPut("me")]
+    [HttpPut("/api/v1/users/me")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), 200)]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileCommand cmd)
     {
@@ -98,20 +71,6 @@ public class UsersController : ControllerBase
         return result.Match<IActionResult>(
             data => Ok(ApiResponse<UserDto>.Ok(data)),
             error => BadRequest(ApiResponse<UserDto>.Fail(error.Code, error.Message))
-        );
-    }
-
-    /// <summary>
-    /// Get another user's public profile
-    /// </summary>
-    [HttpGet("{userId:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<UserProfileDto>), 200)]
-    public async Task<IActionResult> GetUserProfile(Guid userId)
-    {
-        var result = await _mediator.Send(new GetUserProfileQuery(User.GetUserId(), userId));
-        return result.Match<IActionResult>(
-            data => Ok(ApiResponse<UserProfileDto>.Ok(data)),
-            error => NotFound(ApiResponse<UserProfileDto>.Fail(error.Code, error.Message))
         );
     }
 }

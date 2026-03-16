@@ -6,10 +6,8 @@ public enum VenueCategory
     Bar,
     Cafe,
     BeachClub,
-    NightClub,
-    Lounge,
-    Pub,
-    Other
+    Club,
+    Lounge
 }
 
 public enum ActivityLevel
@@ -19,9 +17,9 @@ public enum ActivityLevel
     High
 }
 
-public enum CheckInStatus
+public enum CheckOutReason
 {
-    Active,
-    CheckedOut,
-    Expired
+    Manual,
+    AutoGeofence,
+    AppClosed
 }

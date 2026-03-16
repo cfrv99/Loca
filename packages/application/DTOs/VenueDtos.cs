@@ -3,36 +3,55 @@ namespace Loca.Application.DTOs;
 public record VenueCardDto(
     Guid Id,
     string Name,
+    string? CoverPhotoUrl,
     string Address,
     string Category,
-    string? CoverPhotoUrl,
-    double Latitude,
-    double Longitude,
     double DistanceMeters,
-    int ActiveCount,
-    int MaleCount,
-    int FemaleCount,
-    string ActivityLevel
+    VenueStatsDto Stats,
+    string ActivityLevel,
+    int ActiveGames,
+    int ChatMessageCount
 );
 
 public record VenueDetailDto(
     Guid Id,
     string Name,
-    string Description,
+    string? Description,
     string Address,
     string Category,
-    string? CoverPhotoUrl,
-    List<string> PhotoUrls,
-    string? Phone,
-    string? Website,
-    string? InstagramHandle,
     double Latitude,
     double Longitude,
-    int GeofenceRadiusMeters,
-    string? OpeningHours,
-    int ActiveCount,
-    bool IsVerified,
-    DateTime CreatedAt
+    string? CoverPhotoUrl,
+    List<string> PhotoUrls,
+    decimal? GoogleRating,
+    string? Phone,
+    string? Website,
+    string? WorkingHours,
+    VenueStatsDto Stats,
+    int GeofenceRadius
+);
+
+public record VenueStatsDto(
+    int Total,
+    int Male,
+    int Female
+);
+
+public record ActiveUserDto(
+    Guid UserId,
+    string DisplayName,
+    string? AvatarUrl,
+    int Age,
+    List<string> Interests,
+    bool IsAnonymous
+);
+
+public record CheckInRequest(
+    string QrPayload,
+    double Lat,
+    double Lng,
+    string DeviceFingerprint,
+    bool IsAnonymous = false
 );
 
 public record CheckInResultDto(
@@ -43,8 +62,4 @@ public record CheckInResultDto(
     DateTime CheckedInAt
 );
 
-public record QrCodeDto(
-    string Payload,
-    DateTime ExpiresAt,
-    int RotationSeconds
-);
+public record CheckOutRequest(Guid CheckInId);

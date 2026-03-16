@@ -6,14 +6,14 @@ services:
     container_name: loca-postgres
     environment:
       POSTGRES_DB: loca
-      POSTGRES_USER: loca_admin
-      POSTGRES_PASSWORD: loca_dev_2024
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U loca_admin -d loca"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -32,33 +32,37 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio
     container_name: loca-minio
     environment:
-      MINIO_ROOT_USER: loca_minio
-      MINIO_ROOT_PASSWORD: loca_minio_2024
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000"
       - "9001:9001"
-    volumes:
-      - minio-data:/data
     command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    volumes:
+      - minio_data:/data
 
   adminer:
-    image: adminer:latest
+    image: adminer
     container_name: loca-adminer
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: loca-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
 
 volumes:
-  postgres-data:
-  redis-data:
-  minio-data:
+  postgres_data:
+  redis_data:
+  minio_data:

@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Up-to-date library documentation for Expo, SignalR, EF Core, React Navigation, NativeWind, Zustand, React Query"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_GITHUB_TOKEN>"
+      },
+      "description": "GitHub integration for PRs, issues, CI/CD, code review"
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "Complex problem decomposition for architecture decisions and multi-step planning"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-playwright"],
+      "description": "Browser automation for admin web E2E testing and visual regression"
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://loca:loca_dev@localhost:5432/loca_dev"
+      },
+      "description": "Direct PostgreSQL access for schema exploration, query testing, data verification"
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Persistent memory for architecture decisions, team conventions, and cross-session context"
+    },
+    "figma": {
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp",
+      "description": "Figma design-to-code: extract design context, colors, spacing, components from Figma frames. Use for pixel-perfect React Native UI generation."
+    }
+  }
+}

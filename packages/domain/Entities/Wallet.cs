@@ -3,54 +3,66 @@ using Loca.Domain.Enums;
 
 namespace Loca.Domain.Entities;
 
-public class Wallet : BaseEntity
+public class Wallet
 {
     public Guid UserId { get; set; }
-    public int Balance { get; set; } // In coins
-    public int TotalEarned { get; set; }
+    public int CoinBalance { get; set; }
+    public int TotalPurchased { get; set; }
     public int TotalSpent { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    // Navigation
-    public User User { get; set; } = null!;
-    public List<Transaction> Transactions { get; set; } = new();
+    public bool CanAfford(int amount) => CoinBalance >= amount;
+
+    public void Debit(int amount)
+    {
+        if (!CanAfford(amount))
+            throw new InvalidOperationException("Insufficient balance");
+        CoinBalance -= amount;
+        TotalSpent += amount;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Credit(int amount)
+    {
+        CoinBalance += amount;
+        TotalPurchased += amount;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }
 
 public class Transaction : BaseEntity
 {
-    public Guid WalletId { get; set; }
+    public Guid UserId { get; set; }
     public TransactionType Type { get; set; }
     public int Amount { get; set; }
     public int BalanceAfter { get; set; }
+    public string? ReferenceType { get; set; }
+    public Guid? ReferenceId { get; set; }
     public string? Description { get; set; }
-    public string? ReferenceId { get; set; } // Gift ID, IAP receipt, etc.
-
-    // Navigation
-    public Wallet Wallet { get; set; } = null!;
 }
 
-public class Gift : BaseEntity
+public class GiftCatalogItem : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public int CoinPrice { get; set; }
+    public string? NameAz { get; set; }
     public GiftTier Tier { get; set; }
-    public string AnimationUrl { get; set; } = string.Empty; // Lottie JSON URL
-    public string IconUrl { get; set; } = string.Empty;
+    public int CoinPrice { get; set; }
+    public string? AnimationUrl { get; set; }
+    public string? IconUrl { get; set; }
+    public Guid? VenueId { get; set; }
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
 }
 
-public class GiftTransaction : BaseEntity
+public class CoinPackage : BaseEntity
 {
-    public Guid SenderId { get; set; }
-    public Guid ReceiverId { get; set; }
-    public Guid GiftId { get; set; }
-    public Guid? VenueId { get; set; }
-    public Guid? ChatRoomId { get; set; }
-    public int CoinAmount { get; set; }
-
-    // Navigation
-    public User Sender { get; set; } = null!;
-    public User Receiver { get; set; } = null!;
-    public Gift GiftItem { get; set; } = null!;
+    public string Name { get; set; } = string.Empty;
+    public string? NameAz { get; set; }
+    public decimal PriceAzn { get; set; }
+    public int Coins { get; set; }
+    public int BonusCoins { get; set; }
+    public string? IosProductId { get; set; }
+    public string? AndroidProductId { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
 }

@@ -8,33 +8,8 @@ public enum Gender
     PreferNotToSay
 }
 
-public enum UserPurpose
+public enum AuthProvider
 {
-    Socializing,
-    Dating,
-    Networking,
-    JustExploring
-}
-
-public enum VibePreference
-{
-    Romantic,
-    Party,
-    Chill,
-    Adventurous
-}
-
-public enum PrivacyLevel
-{
-    Public,
-    FriendsOnly,
-    Anonymous
-}
-
-public enum UserStatus
-{
-    Active,
-    Suspended,
-    Banned,
-    Deleted
+    Google,
+    Apple
 }
