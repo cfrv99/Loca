@@ -39,6 +39,10 @@ public class LocaDbContext : DbContext
     public DbSet<GiftCatalogItem> GiftCatalog => Set<GiftCatalogItem>();
     public DbSet<CoinPackage> CoinPackages => Set<CoinPackage>();
 
+    // Notification
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

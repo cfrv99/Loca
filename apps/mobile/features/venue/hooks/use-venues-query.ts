@@ -1,15 +1,18 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '../../../shared/services/api-client';
+import { useLocation } from '../../../shared/hooks/use-location';
 import type { ApiResponse, CursorPageResponse, VenueCardDto } from '../../../shared/types';
 
 export function useVenuesNearby() {
+  const { latitude, longitude } = useLocation();
+
   return useInfiniteQuery({
-    queryKey: ['venues', 'nearby'],
+    queryKey: ['venues', 'nearby', latitude, longitude],
     queryFn: async ({ pageParam }) => {
       const res = await api.get<ApiResponse<CursorPageResponse<VenueCardDto>>>('/venues/nearby', {
         params: {
-          lat: 40.4093, // Baku default - in prod: get from expo-location
-          lng: 49.8671,
+          lat: latitude,
+          lng: longitude,
           cursor: pageParam,
           pageSize: 20,
         },

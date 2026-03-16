@@ -40,6 +40,9 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IVenueRepository, VenueRepository>();
         services.AddScoped<ICheckInRepository, CheckInRepository>();
+        services.AddScoped<IMatchRepository, MatchRepository>();
+        services.AddScoped<IEconomyRepository, EconomyRepository>();
+        services.AddScoped<IPostRepository, PostRepository>();
 
         // Services
         services.AddSingleton<ITokenService, TokenService>();

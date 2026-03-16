@@ -50,6 +50,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Hide profile/edit from tab bar */}
+      <Tabs.Screen
+        name="profile/edit"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

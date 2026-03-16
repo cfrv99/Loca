@@ -28,6 +28,11 @@ public interface IRedisService
     Task CacheMessageAsync(string roomId, ChatMessageDto message);
     Task<List<ChatMessageDto>> GetCachedMessagesAsync(string roomId, int count = 100);
 
+    // Conversation groups (private chat)
+    Task AddUserToConversationAsync(Guid userId, Guid conversationId);
+    Task RemoveUserFromConversationAsync(Guid userId, Guid conversationId);
+    Task<List<Guid>> GetUserConversationsAsync(Guid userId);
+
     // Generic
     Task<string?> GetAsync(string key);
     Task SetAsync(string key, string value, TimeSpan? expiry = null);

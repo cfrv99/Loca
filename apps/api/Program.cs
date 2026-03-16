@@ -1,5 +1,8 @@
+using Loca.Application.Interfaces;
 using Loca.Infrastructure.Configuration;
 using Loca.Infrastructure.Persistence;
+using Loca.Services.Notification;
+using Loca.Services.Notification.Hubs;
 using Loca.Services.Social.Hubs;
 using Loca.Services.Game.Hubs;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddLocaInfrastructure(builder.Configuration);
+
+// Register NotificationService (implementation in Services.Notification project)
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // SignalR
 builder.Services.AddSignalR()
@@ -70,8 +76,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// SignalR Hubs
 app.MapHub<VenueChatHub>("/hubs/venue-chat");
 app.MapHub<GameHub>("/hubs/game");
+app.MapHub<PrivateChatHub>("/hubs/private-chat");
+app.MapHub<NotificationHub>("/hubs/notifications");
+
 app.MapHealthChecks("/health");
 
 // Auto-migrate in development

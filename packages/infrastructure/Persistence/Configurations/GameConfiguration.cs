@@ -11,7 +11,7 @@ public class GameSessionConfiguration : IEntityTypeConfiguration<GameSession>
         builder.ToTable("game_sessions", "game");
         builder.HasKey(g => g.Id);
         builder.Property(g => g.GameType).HasConversion<string>().HasMaxLength(30).IsRequired();
-        builder.Property(g => g.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue("Lobby");
+        builder.Property(g => g.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Loca.Domain.Enums.GameStatus.Lobby);
         builder.Property(g => g.SettingsJson).HasColumnType("jsonb");
         builder.Property(g => g.StateJson).HasColumnType("jsonb");
         builder.Property(g => g.CurrentPhase).HasMaxLength(50);

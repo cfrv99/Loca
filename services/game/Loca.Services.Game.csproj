@@ -10,5 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\packages\infrastructure\Loca.Infrastructure.csproj" />
+    <ProjectReference Include="..\social\Loca.Services.Social.csproj" />
   </ItemGroup>
 </Project>

@@ -17,10 +17,16 @@ export default function LoginScreen() {
       });
 
       if (res.data.success && res.data.data) {
-        const { accessToken, refreshToken, user } = res.data.data;
+        const { accessToken, refreshToken, user, isNewUser } = res.data.data;
         setTokens(accessToken, refreshToken);
         setUser(user);
-        router.replace('/(tabs)/discover');
+
+        // Navigate based on onboarding status
+        if (isNewUser || !user.isOnboarded) {
+          router.replace('/(auth)/onboarding');
+        } else {
+          router.replace('/(tabs)/discover');
+        }
       }
     } catch (error) {
       if (__DEV__) console.error('Login failed:', error);

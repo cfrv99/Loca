@@ -179,3 +179,178 @@ export interface ActiveUserDto {
   interests: string[];
   isAnonymous: boolean;
 }
+
+// Onboarding
+export interface OnboardingData {
+  displayName: string;
+  gender: string;
+  avatarUri?: string;
+  interests: string[];
+  purposes: string[];
+  vibePreferences: VibePreferenceDto[];
+  privacySettings: PrivacySettingsDto;
+}
+
+export interface PrivacySettingsDto {
+  defaultAnonymous: boolean;
+  pushEnabled: boolean;
+}
+
+// Coin packages
+export interface CoinPackageDto {
+  id: string;
+  name: string;
+  nameAz?: string;
+  priceAzn: number;
+  coins: number;
+  bonusCoins: number;
+  iosProductId?: string;
+  androidProductId?: string;
+}
+
+// Balance
+export interface BalanceDto {
+  coinBalance: number;
+  totalPurchased: number;
+  totalSpent: number;
+}
+
+// Post/Feed
+export interface PostDto {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content?: string;
+  mediaUrls: string[];
+  likeCount: number;
+  commentCount: number;
+  isLikedByMe: boolean;
+  createdAt: string;
+}
+
+export interface CommentDto {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+}
+
+// Report
+export type ReportReason = 'harassment' | 'spam' | 'fake' | 'inappropriate' | 'other';
+
+export interface ReportRequest {
+  reason: ReportReason;
+  description?: string;
+}
+
+// Gift send
+export interface GiftSendRequest {
+  giftId: string;
+  recipientId: string;
+  context: 'public_chat' | 'private_chat';
+  venueId?: string;
+  conversationId?: string;
+}
+
+export interface GiftSendResult {
+  transactionId: string;
+  newBalance: number;
+}
+
+// Reactions
+export interface ReactionDto {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
+// Gift Events (SignalR)
+export interface GiftEventDto {
+  senderId: string;
+  senderName: string;
+  recipientId?: string;
+  recipientName?: string;
+  giftId: string;
+  giftName: string;
+  giftNameAz?: string;
+  giftTier: 'basic' | 'premium' | 'luxury';
+  animationUrl?: string;
+  iconUrl?: string;
+  coinCost: number;
+}
+
+// Private Chat
+export interface PrivateMessageDto {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  type: string;
+  content?: string;
+  mediaUrl?: string;
+  replyTo?: PrivateMessageDto;
+  metadata?: Record<string, unknown>;
+  isRead: boolean;
+  createdAt: string;
+}
+
+// Game types
+export interface GameActionDto {
+  actionType: string;
+  targetPlayerId?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface GameResultDto {
+  winnerId?: string;
+  winnerTeam?: string;
+  scores: Array<{ userId: string; displayName: string; score: number }>;
+  duration: string;
+}
+
+export interface GameStateDto {
+  phase: string;
+  timeoutSeconds: number;
+  players: GamePlayerDto[];
+  currentTurnUserId?: string;
+  data?: Record<string, unknown>;
+}
+
+// Mafia specific
+export interface MafiaPlayerState {
+  role: 'mafia' | 'doctor' | 'detective' | 'citizen';
+  isAlive: boolean;
+  mafiaTeamIds?: string[];
+  investigationResult?: boolean;
+}
+
+export interface MafiaPhaseData {
+  phase: 'night' | 'day_discussion' | 'day_vote' | 'elimination' | 'role_reveal' | 'game_over';
+  timeoutSeconds: number;
+  alivePlayers: Array<{ userId: string; displayName: string; avatarUrl?: string }>;
+  eliminatedPlayer?: { userId: string; displayName: string; role?: string };
+  votes?: Record<string, string>;
+  winners?: 'mafia' | 'citizens';
+}
+
+// Truth or Dare specific
+export interface TruthDareState {
+  currentPlayerId: string;
+  currentPlayerName: string;
+  phase: 'spinning' | 'choosing' | 'showing' | 'waiting';
+  questionType?: 'truth' | 'dare';
+  questionText?: string;
+  questionCategory?: string;
+  timeoutSeconds: number;
+}
+
+// Venue count (SignalR)
+export interface VenueCountDto {
+  total: number;
+  male: number;
+  female: number;
+}

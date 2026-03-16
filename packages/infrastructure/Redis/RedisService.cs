@@ -127,6 +127,23 @@ public class RedisService : IRedisService
             .ToList();
     }
 
+    // Conversation groups (private chat)
+    public async Task AddUserToConversationAsync(Guid userId, Guid conversationId)
+    {
+        await Db.SetAddAsync($"user:{userId}:conversations", conversationId.ToString());
+    }
+
+    public async Task RemoveUserFromConversationAsync(Guid userId, Guid conversationId)
+    {
+        await Db.SetRemoveAsync($"user:{userId}:conversations", conversationId.ToString());
+    }
+
+    public async Task<List<Guid>> GetUserConversationsAsync(Guid userId)
+    {
+        var members = await Db.SetMembersAsync($"user:{userId}:conversations");
+        return members.Select(m => Guid.Parse(m.ToString())).ToList();
+    }
+
     // Generic
     public async Task<string?> GetAsync(string key)
     {

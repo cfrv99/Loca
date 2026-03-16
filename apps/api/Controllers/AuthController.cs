@@ -32,6 +32,20 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Login or register via Apple Sign-In
+    /// </summary>
+    [HttpPost("apple")]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 200)]
+    public async Task<IActionResult> AppleLogin([FromBody] AppleLoginCommand cmd)
+    {
+        var result = await _mediator.Send(cmd);
+        return result.Match<IActionResult>(
+            data => Ok(ApiResponse<AuthResponse>.Ok(data)),
+            error => BadRequest(ApiResponse<AuthResponse>.Fail(error.Code, error.Message))
+        );
+    }
+
+    /// <summary>
     /// Refresh access token
     /// </summary>
     [HttpPost("refresh")]
@@ -40,6 +54,22 @@ public class AuthController : ControllerBase
     {
         // TODO: Implement refresh token command
         return Ok(ApiResponse<AuthResponse>.Fail("NOT_IMPLEMENTED", "Refresh token not yet implemented"));
+    }
+
+    /// <summary>
+    /// Complete onboarding (one-time, sets interests, purposes, vibe preferences)
+    /// </summary>
+    [HttpPut("onboarding")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<UserDto>), 200)]
+    public async Task<IActionResult> CompleteOnboarding([FromBody] CompleteOnboardingCommand cmd)
+    {
+        cmd = cmd with { UserId = User.GetUserId() };
+        var result = await _mediator.Send(cmd);
+        return result.Match<IActionResult>(
+            data => Ok(ApiResponse<UserDto>.Ok(data)),
+            error => BadRequest(ApiResponse<UserDto>.Fail(error.Code, error.Message))
+        );
     }
 
     /// <summary>

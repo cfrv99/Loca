@@ -13,6 +13,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
     <PackageReference Include="NSubstitute" Version="5.1.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\packages\domain\Loca.Domain.csproj" />
@@ -23,5 +24,6 @@
     <ProjectReference Include="..\..\services\social\Loca.Services.Social.csproj" />
     <ProjectReference Include="..\..\services\game\Loca.Services.Game.csproj" />
     <ProjectReference Include="..\..\services\economy\Loca.Services.Economy.csproj" />
+    <ProjectReference Include="..\..\services\notification\Loca.Services.Notification.csproj" />
   </ItemGroup>
 </Project>

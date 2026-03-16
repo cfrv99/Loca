@@ -78,7 +78,7 @@ public class MatchRequestConfiguration : IEntityTypeConfiguration<MatchRequest>
         builder.ToTable("match_requests", "social");
         builder.HasKey(m => m.Id);
         builder.Property(m => m.IntroMessage).HasMaxLength(200);
-        builder.Property(m => m.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue("pending");
+        builder.Property(m => m.Status).HasConversion<string>().HasMaxLength(20);
 
         builder.HasIndex(m => new { m.ReceiverId, m.Status });
         builder.HasIndex(m => new { m.SenderId, m.CreatedAt })
@@ -112,6 +112,6 @@ public class ReportConfiguration : IEntityTypeConfiguration<Report>
         builder.ToTable("reports", "social");
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Reason).HasConversion<string>().HasMaxLength(50).IsRequired();
-        builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue("pending");
+        builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
     }
 }
